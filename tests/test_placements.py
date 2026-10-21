@@ -191,3 +191,61 @@ def test_installation_avec_date_passee_et_derogation(db, locations):
     implantation = service.placement_service.current(cree.id)
     assert implantation.entry_delay_days == 30
     assert implantation.derogation_reason == "Reprise d'inventaire papier"
+
+
+def test_un_equipement_sans_implantation_peut_etre_implante(
+    db, equipement_non_implante, locations
+):
+    """Cas des équipements hérités de la v0.1 : le déplacement ouvre la
+    première période d'implantation."""
+    service = PlacementService(db)
+
+    assert service.current(equipement_non_implante.id) is None
+
+    implantation = service.move(
+        equipement_non_implante,
+        PlacementCreate(
+            location_id=locations["zone"].id,
+            effective_from=REFERENCE_DATE,
+            reason="Emplacement réel retrouvé lors de l'inventaire",
+        ),
+    )
+
+    assert implantation.movement_type == "installation"
+    assert implantation.effective_to is None
+    assert service.current(equipement_non_implante.id) is implantation
+
+
+def test_implantation_antidatee_sur_un_equipement_sans_implantation(
+    db, equipement_non_implante, locations
+):
+    service = PlacementService(db)
+
+    with pytest.raises(Exception) as exc:
+        service.move(
+            equipement_non_implante,
+            PlacementCreate(
+                location_id=locations["zone"].id,
+                effective_from=REFERENCE_DATE - timedelta(days=45),
+            ),
+        )
+
+    assert "motif de dérogation" in str(exc.value)
+
+
+def test_implantation_antidatee_justifiee_sur_un_equipement_sans_implantation(
+    db, equipement_non_implante, locations
+):
+    service = PlacementService(db)
+
+    implantation = service.move(
+        equipement_non_implante,
+        PlacementCreate(
+            location_id=locations["zone"].id,
+            effective_from=REFERENCE_DATE - timedelta(days=45),
+            derogation_reason="Machine déjà sur site lors de l'inventaire",
+        ),
+    )
+
+    assert implantation.entry_delay_days == 45
+    assert implantation.derogation_reason == "Machine déjà sur site lors de l'inventaire"

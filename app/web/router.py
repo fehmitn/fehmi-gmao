@@ -732,11 +732,15 @@ async def move_equipment(
             derogation_reason=ft.optional_text(data, "derogation_reason"),
         )
         equipment = EquipmentService(db).get(equipment_id)
+        deja_implante = PlacementService(db).current(equipment_id) is not None
         PlacementService(db).move(equipment, payload, actor=actor)
     except (DomainError, ValueError) as exc:
         message = exc.message if isinstance(exc, DomainError) else str(exc)
         return _redirect(f"/equipments/{equipment_id}", err=message)
-    return _redirect(f"/equipments/{equipment_id}", msg="Déplacement enregistré.")
+    message = (
+        "Déplacement enregistré." if deja_implante else "Implantation enregistrée."
+    )
+    return _redirect(f"/equipments/{equipment_id}", msg=message)
 
 
 @router.post("/equipments/{equipment_id}/delete")

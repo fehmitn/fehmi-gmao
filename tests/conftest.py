@@ -188,3 +188,22 @@ def ancien_equipement(db: Session, locations, equipment_type, admin):
         ),
         actor=admin,
     )
+
+
+@pytest.fixture()
+def equipement_non_implante(db: Session, locations, equipment_type):
+    """Équipement sans aucune implantation (cas des données héritées v0.1)."""
+    from app.models.equipment import Equipment
+
+    item = Equipment(
+        code="EQ-HIST",
+        name="Équipement hérité",
+        equipment_type_id=equipment_type.id,
+        site_id=locations["zone"].site_id,
+        status=EquipmentStatus.OPERATIONAL.value,
+        criticality=Criticality.C.value,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item

@@ -126,3 +126,31 @@ def test_detail_emplacement_en_fragment(client, locations):
 
     assert reponse.status_code == 200
     assert "ZON-01" in reponse.text
+
+
+def test_fiche_d_un_equipement_non_implante_propose_l_implantation(
+    client, equipement_non_implante
+):
+    """L'équipement hérité de la v0.1 peut être implanté depuis sa fiche."""
+    reponse = client.get(f"/equipments/{equipement_non_implante.id}")
+
+    assert reponse.status_code == 200
+    assert "Implanter l'équipement" in reponse.text
+    assert "Enregistrer l'implantation" in reponse.text
+
+
+def test_implantation_de_l_equipement_non_implante_par_le_web(
+    client, equipement_non_implante, locations
+):
+    reponse = client.post(
+        f"/equipments/{equipement_non_implante.id}/placements",
+        data={
+            "location_id": str(locations["zone"].id),
+            "effective_from": REFERENCE_DATE.isoformat(),
+            "reason": "Emplacement réel retrouvé",
+        },
+        follow_redirects=False,
+    )
+
+    assert reponse.status_code == 303
+    assert "err=" not in reponse.headers["location"]

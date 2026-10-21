@@ -95,50 +95,63 @@ class PlacementService:
         payload: PlacementCreate,
         actor: User | None = None,
     ) -> EquipmentLocation:
-        """Déplace un équipement vers un nouvel emplacement à une date d'effet."""
+        """Déplace un équipement vers un nouvel emplacement à une date d'effet.
+
+        Cas particulier : si l'équipement n'a encore aucune implantation (par
+        exemple un équipement hérité de la version 0.1), le déplacement joue
+        le rôle de l'installation initiale.
+        """
         current = self.current(equipment.id)
-        if current is None:
-            raise ValidationError(
-                "Cet équipement n'a pas d'implantation : utilisez l'installation initiale."
-            )
         location = self.location_repository.get(payload.location_id)
         if location is None:
             raise NotFoundError(f"Emplacement {payload.location_id} introuvable.")
-        if location.id == current.location_id:
+        if current is not None and location.id == current.location_id:
             raise ValidationError(
                 "L'équipement est déjà implanté dans cet emplacement."
             )
 
         effective_from = payload.effective_from or today()
-        if effective_from < current.effective_from:
-            raise ValidationError(
-                "La date d'effet du déplacement doit être postérieure à la date "
-                f"d'implantation en cours ({current.effective_from.isoformat()}). "
-                "Les déplacements s'enchaînent chronologiquement."
+        if current is not None:
+            if effective_from < current.effective_from:
+                raise ValidationError(
+                    "La date d'effet du déplacement doit être postérieure à la date "
+                    f"d'implantation en cours ({current.effective_from.isoformat()}). "
+                    "Les déplacements s'enchaînent chronologiquement."
+                )
+
+            decision = self.policy.enforce(
+                effective_from,
+                payload.derogation_reason,
+                minimum_date=current.effective_from,
+                minimum_label="l'implantation en cours",
             )
 
-        decision = self.policy.enforce(
-            effective_from,
-            payload.derogation_reason,
-            minimum_date=current.effective_from,
-            minimum_label="l'implantation en cours",
-        )
-
-        # On ferme la période en cours la veille du déplacement (le jour même
-        # si le déplacement est daté du jour de l'implantation).
-        current.effective_to = (
-            effective_from
-            if effective_from == current.effective_from
-            else effective_from - timedelta(days=1)
-        )
-        self.repository.save(current)
+            # On ferme la période en cours la veille du déplacement (le jour même
+            # si le déplacement est daté du jour de l'implantation).
+            current.effective_to = (
+                effective_from
+                if effective_from == current.effective_from
+                else effective_from - timedelta(days=1)
+            )
+            self.repository.save(current)
+            movement_type = str(payload.movement_type)
+        else:
+            # Première implantation : la date d'effet ne peut pas précéder la
+            # mise en service de l'équipement.
+            decision = self.policy.enforce(
+                effective_from,
+                payload.derogation_reason,
+                minimum_date=equipment.commissioning_date,
+                minimum_label="la mise en service",
+            )
+            movement_type = MovementType.INSTALLATION.value
 
         placement = EquipmentLocation(
             equipment_id=equipment.id,
             location_id=location.id,
             effective_from=effective_from,
             effective_to=None,
-            movement_type=str(payload.movement_type),
+            movement_type=movement_type,
             reason=payload.reason,
             recorded_at=now(),
             entry_delay_days=decision.delay_days or None,
@@ -160,11 +173,12 @@ class PlacementService:
             reason=payload.reason,
             payload={
                 "code": equipment.code,
-                "from_location_id": str(current.location_id),
+                "from_location_id": str(current.location_id) if current else None,
                 "to_location_id": str(location.id),
                 "to_location": self.location_repository.path(location.id),
                 "effective_from": effective_from.isoformat(),
                 "entry_delay_days": str(decision.delay_days),
+                "movement_type": movement_type,
             },
         )
         self._audit_backdating(decision, equipment, "déplacement", actor)

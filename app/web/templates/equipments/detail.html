@@ -102,11 +102,25 @@
 
   <div class="col-lg-5">
     <div class="card">
-      <div class="card-header">Déplacer l'équipement</div>
+      <div class="card-header">
+        {% if equipment.current_location_id %}
+          Déplacer l'équipement
+        {% else %}
+          Implanter l'équipement
+        {% endif %}
+      </div>
       <div class="card-body">
+        {% if not equipment.current_location_id %}
+          <div class="alert alert-info">
+            Cet équipement n'est pas encore implanté. Choisissez son emplacement
+            et la date d'effet de l'installation.
+          </div>
+        {% endif %}
         <form method="post" action="/equipments/{{ equipment.id }}/placements">
           <div class="mb-2">
-            <label class="form-label" for="mv-location">Nouvel emplacement *</label>
+            <label class="form-label" for="mv-location">
+              {% if equipment.current_location_id %}Nouvel emplacement{% else %}Emplacement{% endif %} *
+            </label>
             <select class="form-select" id="mv-location" name="location_id" required>
               <option value="">— choisir —</option>
               {% for location in locations %}
@@ -122,7 +136,9 @@
                    data-backdate-source="true" value="{{ app_today().isoformat() }}">
           </div>
           <div class="mb-2">
-            <label class="form-label" for="mv-reason">Motif du déplacement</label>
+            <label class="form-label" for="mv-reason">
+              {% if equipment.current_location_id %}Motif du déplacement{% else %}Motif de l'implantation{% endif %}
+            </label>
             <input class="form-control" id="mv-reason" name="reason"
                    placeholder="Ex. : réorganisation de l'atelier">
           </div>
@@ -135,13 +151,21 @@
                         placeholder="Ex. : déplacement effectué en mars mais non saisi à l'époque."></textarea>
             </div>
           </div>
-          <button class="btn btn-primary" type="submit">Enregistrer le déplacement</button>
+          <button class="btn btn-primary" type="submit">
+            {% if equipment.current_location_id %}Enregistrer le déplacement{% else %}Enregistrer l'implantation{% endif %}
+          </button>
         </form>
         <hr>
         <p class="small text-muted mb-0">
-          La date d'effet doit être <strong>postérieure</strong> à la date d'implantation
-          en cours. Une date passée déclenche l'exigence d'un motif de dérogation et
-          alimente le journal d'audit.
+          {% if equipment.current_location_id %}
+            La date d'effet doit être <strong>postérieure</strong> à la date d'implantation
+            en cours. Une date passée déclenche l'exigence d'un motif de dérogation et
+            alimente le journal d'audit.
+          {% else %}
+            La date d'effet ne peut pas précéder la mise en service de l'équipement.
+            Une date passée déclenche l'exigence d'un motif de dérogation et alimente
+            le journal d'audit.
+          {% endif %}
         </p>
       </div>
     </div>

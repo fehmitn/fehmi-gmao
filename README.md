@@ -130,6 +130,19 @@ Variables d'environnement (fichier `.env`, voir `.env.example`) :
 2. Un déplacement **saisi en retard** repositionne le passé : la période
    précédente se clôture à la veille de la date d'effet.
 
+### Étape 4 bis — Reprendre un équipement hérité (cas réel)
+
+1. Le tableau de bord affiche **1 équipement « sans emplacement »** : c'est
+   `EQ-001`, l'équipement repris de la version 0.1 (son emplacement n'était
+   qu'un texte libre, il n'a donc pas pu être implanté automatiquement).
+2. Ouvrir sa fiche : le formulaire s'intitule **« Implanter l'équipement »**
+   au lieu de « Déplacer l'équipement ».
+3. Choisir l'emplacement `NA-001 / Non affecté` et une date d'effet **passée**
+   (la machine était déjà sur site) → le motif de dérogation est exigé, puis
+   l'implantation est enregistrée avec son retard (60 jours) et son motif.
+4. Le compteur « Sans emplacement » du tableau de bord repasse à 0 et
+   `EQ-001` apparaît dans l'historique du site `USINE-HIST`.
+
 ### Étape 5 — Filtrer
 
 La liste des équipements combine : recherche texte, usine, emplacement
@@ -152,7 +165,7 @@ requêtes HTTP documentées sur `/api/equipments`.
 | `GET` | `/api/equipments` | Liste filtrable (`search`, `site_id`, `location_id`, `include_descendants`, `status`, `criticality`, `category`) |
 | `POST` | `/api/equipments` | Créer un équipement (+ son implantation) |
 | `GET` | `/api/equipments/{id}/placements` | Historique d'implantation |
-| `POST` | `/api/equipments/{id}/placements` | Déplacer (date d'effet + dérogation) |
+| `POST` | `/api/equipments/{id}/placements` | Déplacer (date d'effet + dérogation) — ou implanter si l'équipement n'en a pas encore |
 | `GET` | `/api/audit` | Journal d'audit |
 | `GET` | `/api/stats/dashboard` | Indicateurs du tableau de bord |
 
@@ -183,7 +196,7 @@ gmao-app/
 │   ├── errors.py             exceptions du domaine
 │   └── main.py               point d'entrée (API + web + statique)
 ├── scripts/seed.py           jeu de démonstration
-└── tests/                    53 tests pytest
+└── tests/                    58 tests pytest
 ```
 
 **Choix techniques notables**
@@ -212,7 +225,7 @@ figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
 | Fichier | Couverture |
 |---|---|
 | `tests/test_backdating.py` | motif obligatoire, futur interdit, antériorité, empreinte, audit |
-| `tests/test_placements.py` | périodes, cohérence des dates, fermeture, déplacement entre usines |
+| `tests/test_placements.py` | périodes, cohérence des dates, fermeture, déplacement entre usines, implantation d'un équipement sans emplacement |
 | `tests/test_equipment.py` | unicité du code, pré-remplissage depuis le type, filtres |
 | `tests/test_locations.py` | arborescence, unicité par usine, cycles, suppression protégée |
 | `tests/test_api.py` | API REST et pages web |
