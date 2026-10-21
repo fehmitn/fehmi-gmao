@@ -1,0 +1,21 @@
+{% macro render_tree(nodes) %}
+<ul class="location-tree">
+  {% for node in nodes %}
+  <li>
+    <div class="d-flex align-items-center gap-2 py-1">
+      <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none location-node"
+              hx-get="/locations/{{ node.id }}" hx-target="#location-detail" hx-swap="innerHTML">
+        <span class="fw-semibold">{{ node.code }}</span>
+        <span class="text-muted">— {{ node.name }}</span>
+      </button>
+      <span class="badge text-bg-light border">{{ node.location_type_label }}</span>
+      <span class="badge text-bg-secondary">{% if node.equipment_count %}{{ node.equipment_count }} équip.{% else %}vide{% endif %}</span>
+      {% if not node.is_active %}<span class="badge text-bg-dark">inactif</span>{% endif %}
+    </div>
+    {% if node.children %}
+    {{ render_tree(node.children) }}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}

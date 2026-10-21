@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-primary" href="/equipments/new">+ Nouvel équipement</a>
+{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">Recherche et filtres</div>
+  <div class="card-body">
+    <form hx-get="/equipments/table" hx-target="#equipment-region" hx-swap="innerHTML"
+          hx-trigger="change, submit" hx-indicator="#equipment-loading">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label" for="f-search">Recherche</label>
+          <input class="form-control" id="f-search" name="search" value="{{ filters.search or '' }}"
+                 placeholder="Code, nom, n° de série...">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="f-site">Usine</label>
+          <select class="form-select" id="f-site" name="site_id">
+            <option value="">Toutes</option>
+            {% for site in sites %}
+            <option value="{{ site.id }}" {% if filters.site_id == site.id %}selected{% endif %}>
+              {{ site.code }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="f-location">Emplacement</label>
+          <select class="form-select" id="f-location" name="location_id">
+            <option value="">Tous</option>
+            {% for location in locations %}
+            <option value="{{ location.id }}" {% if filters.location_id == location.id %}selected{% endif %}>
+              {{ location.site_code }} / {{ location.code }} — {{ location.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="f-type">Type</label>
+          <select class="form-select" id="f-type" name="equipment_type_id">
+            <option value="">Tous</option>
+            {% for type in equipment_types %}
+            <option value="{{ type.id }}" {% if filters.equipment_type_id == type.id %}selected{% endif %}>
+              {{ type.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1">
+          <label class="form-label" for="f-status">Statut</label>
+          <select class="form-select" id="f-status" name="status_filter">
+            <option value="">—</option>
+            {% for status in statuses %}
+            <option value="{{ status.value }}" {% if filters.status == status.value %}selected{% endif %}>
+              {{ status.value }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1">
+          <label class="form-label" for="f-criticality">Criticité</label>
+          <select class="form-select" id="f-criticality" name="criticality">
+            <option value="">—</option>
+            <option value="A" {% if filters.criticality == 'A' %}selected{% endif %}>A</option>
+            <option value="B" {% if filters.criticality == 'B' %}selected{% endif %}>B</option>
+            <option value="C" {% if filters.criticality == 'C' %}selected{% endif %}>C</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2 align-items-center">
+        <button class="btn btn-outline-primary btn-sm" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary btn-sm" href="/equipments">Réinitialiser</a>
+        <span id="equipment-loading" class="htmx-indicator small text-muted">Chargement…</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="equipment-region">
+  {% include "partials/equipment_table.html" %}
+</div>
+{% endblock %}

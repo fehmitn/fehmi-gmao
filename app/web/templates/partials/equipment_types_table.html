@@ -1,0 +1,41 @@
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<div class="card">
+  <div class="card-header">Types d'équipements</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Code</th><th>Nom</th><th>Catégorie</th><th>Constructeur</th>
+        <th>Modèle</th><th>Criticité</th><th class="text-end">Équipements</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for type in equipment_types %}
+        <tr>
+          <td class="fw-semibold">{{ type.code }}</td>
+          <td>{{ type.name }}</td>
+          <td>{{ type.category }}</td>
+          <td>{{ type.manufacturer or '—' }}</td>
+          <td>{{ type.model or '—' }}</td>
+          <td>
+            {% if type.criticality %}
+            <span class="badge {% if type.criticality == 'A' %}text-bg-danger{% elif type.criticality == 'B' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+              {{ type.criticality }}
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end">{{ type.equipment_count }}</td>
+          <td class="text-end">
+            <form class="d-inline" method="post" action="/equipment-types/{{ type.id }}/delete"
+                  onsubmit="return confirm('Supprimer ce type ?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-muted">Aucun type d'équipement.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,43 @@
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<div class="card">
+  <div class="card-header">Liste des usines</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Code</th><th>Nom</th><th>Emplacements</th><th>Équipements</th>
+        <th>État</th><th class="text-end">Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for site in sites %}
+        <tr>
+          <td class="fw-semibold">{{ site.code }}</td>
+          <td>
+            {{ site.name }}
+            {% if site.city %}<div class="small text-muted">{{ site.city }}</div>{% endif %}
+          </td>
+          <td>{{ site.location_count }}</td>
+          <td>{{ site.equipment_count }}</td>
+          <td>
+            {% if site.is_active %}
+            <span class="badge text-bg-success">active</span>
+            {% else %}
+            <span class="badge text-bg-secondary">inactive</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/sites/{{ site.id }}">Ouvrir</a>
+            <form class="d-inline" method="post" action="/sites/{{ site.id }}/delete"
+                  onsubmit="return confirm('Supprimer cette usine ?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">Aucune usine enregistrée.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

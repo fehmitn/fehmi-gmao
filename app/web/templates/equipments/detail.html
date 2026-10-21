@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="/equipments/{{ equipment.id }}/edit">Modifier</a>
+<form class="d-inline" method="post" action="/equipments/{{ equipment.id }}/delete"
+      onsubmit="return confirm('Supprimer cet équipement et son historique ?');">
+  <button class="btn btn-outline-danger" type="submit">Supprimer</button>
+</form>
+{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>{{ equipment.code }} — {{ equipment.name }}</span>
+        {% if equipment.criticality %}
+        <span class="badge {% if equipment.criticality == 'A' %}text-bg-danger{% elif equipment.criticality == 'B' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+          criticité {{ equipment.criticality }}
+        </span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Type</dt>
+          <dd class="col-sm-8">{{ equipment.equipment_type_name or '—' }}</dd>
+
+          <dt class="col-sm-4">Usine</dt>
+          <dd class="col-sm-8">{{ equipment.site_code }} — {{ equipment.site_name }}</dd>
+
+          <dt class="col-sm-4">Emplacement actuel</dt>
+          <dd class="col-sm-8">
+            {% if equipment.current_location_code %}
+            <strong>{{ equipment.current_location_code }}</strong> — {{ equipment.current_location_name }}
+            <div class="small text-muted">{{ equipment.current_location_path }}</div>
+            {% else %}
+            <span class="badge text-bg-danger">non implanté</span>
+            {% endif %}
+          </dd>
+
+          <dt class="col-sm-4">Statut</dt>
+          <dd class="col-sm-8">{{ equipment.status }}</dd>
+
+          <dt class="col-sm-4">Constructeur / modèle</dt>
+          <dd class="col-sm-8">{{ equipment.manufacturer or '—' }} / {{ equipment.model or '—' }}</dd>
+
+          <dt class="col-sm-4">N° de série</dt>
+          <dd class="col-sm-8">{{ equipment.serial_number or '—' }}</dd>
+
+          <dt class="col-sm-4">Date d'achat</dt>
+          <dd class="col-sm-8">{{ equipment.purchase_date.strftime('%d/%m/%Y') if equipment.purchase_date else '—' }}</dd>
+
+          <dt class="col-sm-4">Mise en service</dt>
+          <dd class="col-sm-8">{{ equipment.commissioning_date.strftime('%d/%m/%Y') if equipment.commissioning_date else '—' }}</dd>
+
+          <dt class="col-sm-4">Coût d'acquisition</dt>
+          <dd class="col-sm-8">{{ equipment.acquisition_cost if equipment.acquisition_cost else '—' }}</dd>
+
+          <dt class="col-sm-4">Fin de garantie</dt>
+          <dd class="col-sm-8">{{ equipment.warranty_end_date.strftime('%d/%m/%Y') if equipment.warranty_end_date else '—' }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Historique d'implantation</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr>
+            <th>Emplacement</th><th>Du</th><th>Au</th><th>Type</th>
+            <th>Saisie</th><th>Motif</th>
+          </tr></thead>
+          <tbody>
+          {% for placement in history %}
+            <tr class="{% if placement.is_current %}table-success{% endif %}">
+              <td>
+                {{ placement.location_code }} — {{ placement.location_name }}
+                <div class="small text-muted">{{ placement.location_path }}</div>
+              </td>
+              <td>{{ placement.effective_from.strftime('%d/%m/%Y') }}</td>
+              <td>{{ placement.effective_to.strftime('%d/%m/%Y') if placement.effective_to else 'en cours' }}</td>
+              <td>{{ placement.movement_type }}</td>
+              <td>
+                {{ placement.recorded_at.strftime('%d/%m/%Y %H:%M') }}
+                {% if placement.entry_delay_days %}
+                <div><span class="badge text-bg-warning">{{ placement.entry_delay_days }} j de retard</span></div>
+                {% endif %}
+              </td>
+              <td class="small">
+                {{ placement.reason or '—' }}
+                {% if placement.derogation_reason %}
+                <div class="text-warning-emphasis"><strong>Dérogation :</strong> {{ placement.derogation_reason }}</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="text-muted">Aucun historique d'implantation.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Déplacer l'équipement</div>
+      <div class="card-body">
+        <form method="post" action="/equipments/{{ equipment.id }}/placements">
+          <div class="mb-2">
+            <label class="form-label" for="mv-location">Nouvel emplacement *</label>
+            <select class="form-select" id="mv-location" name="location_id" required>
+              <option value="">— choisir —</option>
+              {% for location in locations %}
+              <option value="{{ location.id }}" {% if location.id == equipment.current_location_id %}disabled{% endif %}>
+                {{ location.code }} — {{ location.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="mv-date">Date d'effet *</label>
+            <input class="form-control" type="date" id="mv-date" name="effective_from" required
+                   data-backdate-source="true" value="{{ app_today().isoformat() }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="mv-reason">Motif du déplacement</label>
+            <input class="form-control" id="mv-reason" name="reason"
+                   placeholder="Ex. : réorganisation de l'atelier">
+          </div>
+          <div class="mb-3" id="derogation-block" style="display:none;">
+            <div class="alert alert-warning mb-0">
+              <label class="form-label fw-semibold" for="mv-derogation">
+                Motif de la saisie rétroactive *
+              </label>
+              <textarea class="form-control" id="mv-derogation" name="derogation_reason" rows="2"
+                        placeholder="Ex. : déplacement effectué en mars mais non saisi à l'époque."></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">Enregistrer le déplacement</button>
+        </form>
+        <hr>
+        <p class="small text-muted mb-0">
+          La date d'effet doit être <strong>postérieure</strong> à la date d'implantation
+          en cours. Une date passée déclenche l'exigence d'un motif de dérogation et
+          alimente le journal d'audit.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

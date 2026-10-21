@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-primary" href="/equipments/new">+ Nouvel équipement</a>
+{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Nouvelle usine</div>
+      <div class="card-body">
+        <form hx-post="/sites" hx-target="#site-region" hx-swap="innerHTML">
+          <div class="mb-2">
+            <label class="form-label" for="site-code">Code</label>
+            <input class="form-control" id="site-code" name="code" placeholder="USN-01" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="site-name">Nom</label>
+            <input class="form-control" id="site-name" name="name" placeholder="Usine de Casablanca" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="site-city">Ville</label>
+            <input class="form-control" id="site-city" name="city">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="site-country">Pays</label>
+            <input class="form-control" id="site-country" name="country">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="site-address">Adresse</label>
+            <input class="form-control" id="site-address" name="address">
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="site-active" name="is_active" value="1" checked>
+            <label class="form-check-label" for="site-active">Usine active</label>
+          </div>
+          <button class="btn btn-primary" type="submit">Créer l'usine</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div id="site-region">
+      {% include "partials/sites_table.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

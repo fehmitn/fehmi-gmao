@@ -1,0 +1,58 @@
+<div class="card">
+  <div class="card-header">{{ total }} équipement(s) trouvé(s)</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Code</th><th>Nom</th><th>Type</th><th>Usine</th><th>Emplacement</th>
+        <th>Statut</th><th>Criticité</th><th class="text-end">Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for equipment in equipments %}
+        <tr>
+          <td class="fw-semibold">{{ equipment.code }}</td>
+          <td>
+            {{ equipment.name }}
+            {% if equipment.manufacturer %}
+            <div class="small text-muted">{{ equipment.manufacturer }}{% if equipment.model %} — {{ equipment.model }}{% endif %}</div>
+            {% endif %}
+          </td>
+          <td>{{ equipment.equipment_type_name or '—' }}</td>
+          <td>{{ equipment.site_code }}</td>
+          <td>
+            {% if equipment.current_location_code %}
+            <span class="small">{{ equipment.current_location_code }}</span>
+            <div class="small text-muted">{{ equipment.current_location_path }}</div>
+            {% else %}
+            <span class="badge text-bg-danger">non implanté</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if equipment.status == 'operational' %}
+            <span class="badge text-bg-success">en service</span>
+            {% elif equipment.status == 'maintenance' %}
+            <span class="badge text-bg-warning">en maintenance</span>
+            {% elif equipment.status == 'down' %}
+            <span class="badge text-bg-danger">en panne</span>
+            {% else %}
+            <span class="badge text-bg-secondary">{{ equipment.status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if equipment.criticality %}
+            <span class="badge {% if equipment.criticality == 'A' %}text-bg-danger{% elif equipment.criticality == 'B' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+              {{ equipment.criticality }}
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/equipments/{{ equipment.id }}">Fiche</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/equipments/{{ equipment.id }}/edit">Modifier</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-muted">Aucun équipement ne correspond aux filtres.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

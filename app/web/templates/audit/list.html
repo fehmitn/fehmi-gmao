@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header">Filtres du journal</div>
+  <div class="card-body">
+    <form method="get" action="/audit" class="row g-2">
+      <div class="col-md-3">
+        <label class="form-label" for="a-action">Action</label>
+        <select class="form-select" id="a-action" name="action">
+          <option value="">Toutes</option>
+          <option value="create" {% if request.query_params.get('action') == 'create' %}selected{% endif %}>create</option>
+          <option value="update" {% if request.query_params.get('action') == 'update' %}selected{% endif %}>update</option>
+          <option value="delete" {% if request.query_params.get('action') == 'delete' %}selected{% endif %}>delete</option>
+          <option value="move" {% if request.query_params.get('action') == 'move' %}selected{% endif %}>move</option>
+          <option value="backdate" {% if request.query_params.get('action') == 'backdate' %}selected{% endif %}>backdate</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="a-entity">Entité</label>
+        <select class="form-select" id="a-entity" name="entity_type">
+          <option value="">Toutes</option>
+          <option value="site" {% if request.query_params.get('entity_type') == 'site' %}selected{% endif %}>site</option>
+          <option value="location" {% if request.query_params.get('entity_type') == 'location' %}selected{% endif %}>location</option>
+          <option value="equipment" {% if request.query_params.get('entity_type') == 'equipment' %}selected{% endif %}>equipment</option>
+          <option value="equipment_type" {% if request.query_params.get('entity_type') == 'equipment_type' %}selected{% endif %}>equipment_type</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="a-search">Recherche (motif, auteur)</label>
+        <input class="form-control" id="a-search" name="search" value="{{ request.query_params.get('search') or '' }}">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-outline-primary" type="submit">Filtrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">{{ total }} entrée(s)</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Horodatage</th><th>Auteur</th><th>Action</th><th>Entité</th>
+        <th>Motif</th><th>Détail</th>
+      </tr></thead>
+      <tbody>
+      {% for log in logs %}
+        <tr class="{% if log.action == 'backdate' %}table-warning{% endif %}">
+          <td class="text-nowrap">{{ log.occurred_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          <td>{{ log.actor_label }}</td>
+          <td>
+            <span class="badge {% if log.action == 'backdate' %}text-bg-warning{% elif log.action == 'delete' %}text-bg-danger{% elif log.action == 'create' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
+              {{ log.action }}
+            </span>
+          </td>
+          <td>{{ log.entity_type }}#{{ log.entity_id or '—' }}</td>
+          <td class="small">{{ log.reason or '—' }}</td>
+          <td class="small text-muted">
+            {% if log.payload %}
+            {% for key, value in log.payload.items() %}
+            <span class="me-2">{{ key }}={{ value }}</span>
+            {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">Aucune entrée.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

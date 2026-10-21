@@ -1,0 +1,66 @@
+/* Petits ajustements pour l'application GMAO. */
+
+:root {
+  --gmao-border: #e3e6ea;
+}
+
+body {
+  background-color: #f6f7f9;
+  font-size: 0.95rem;
+}
+
+main {
+  max-width: 1500px;
+}
+
+.card {
+  border-color: var(--gmao-border);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.card-header {
+  background-color: #fbfcfd;
+  font-weight: 600;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.5rem 0.6rem;
+}
+
+.location-tree,
+.location-tree ul {
+  list-style: none;
+  padding-left: 1.1rem;
+  margin: 0;
+}
+
+.location-tree > li {
+  border-left: 1px dashed var(--gmao-border);
+  padding-left: 0.6rem;
+}
+
+.location-node {
+  font-size: 0.95rem;
+}
+
+.location-node:hover {
+  text-decoration: underline !important;
+}
+
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+code {
+  color: #6f42c1;
+}
+
+.table-warning td {
+  background-color: #fff3cd !important;
+}

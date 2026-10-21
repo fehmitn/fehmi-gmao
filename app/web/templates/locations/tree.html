@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as ui %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">Usine</div>
+      <div class="card-body">
+        <form method="get" action="/locations" class="d-flex gap-2">
+          <select class="form-select" name="site_id" onchange="this.form.submit()">
+            {% for site in sites %}
+            <option value="{{ site.id }}" {% if site.id == selected_site %}selected{% endif %}>
+              {{ site.code }} — {{ site.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <noscript><button class="btn btn-outline-secondary" type="submit">OK</button></noscript>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Nouvel emplacement</div>
+      <div class="card-body">
+        <form method="post" action="/locations">
+          <input type="hidden" name="site_id" value="{{ selected_site or '' }}">
+          <div class="mb-2">
+            <label class="form-label" for="loc-code">Code</label>
+            <input class="form-control" id="loc-code" name="code" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="loc-name">Nom</label>
+            <input class="form-control" id="loc-name" name="name" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="loc-type">Type</label>
+            <select class="form-select" id="loc-type" name="location_type_id" required>
+              {% for type in location_types %}
+              <option value="{{ type.id }}">{{ type.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="loc-parent">Emplacement parent</label>
+            <select class="form-select" id="loc-parent" name="parent_id">
+              <option value="">— racine de l'usine —</option>
+              {% for node in tree %}
+              <option value="{{ node.id }}">{{ node.code }} — {{ node.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Créer</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Arborescence</div>
+      <div class="card-body">
+        {% if tree %}
+        {{ ui.render_tree(tree) }}
+        {% else %}
+        <p class="text-muted mb-0">Aucun emplacement. Créez le premier ci-dessus.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Détail de l'emplacement</div>
+      <div class="card-body" id="location-detail">
+        <p class="text-muted mb-0">
+          Cliquez sur un emplacement de l'arborescence pour afficher sa fiche
+          (modification, déplacement, suppression).
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

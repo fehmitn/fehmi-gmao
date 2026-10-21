@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Nouveau type d'équipement</div>
+      <div class="card-body">
+        <form hx-post="/equipment-types" hx-target="#type-region" hx-swap="innerHTML">
+          <div class="mb-2">
+            <label class="form-label" for="type-code">Code</label>
+            <input class="form-control" id="type-code" name="code" placeholder="PMP-CF" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="type-name">Nom</label>
+            <input class="form-control" id="type-name" name="name" placeholder="Pompe centrifuge" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="type-category">Catégorie</label>
+            <input class="form-control" id="type-category" name="category" placeholder="Pompes" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="type-manufacturer">Constructeur</label>
+            <input class="form-control" id="type-manufacturer" name="manufacturer">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="type-model">Modèle</label>
+            <input class="form-control" id="type-model" name="model">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="type-criticality">Criticité</label>
+            <select class="form-select" id="type-criticality" name="criticality">
+              <option value="">— non précisée —</option>
+              <option value="A">A — critique</option>
+              <option value="B">B — important</option>
+              <option value="C">C — secondaire</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Créer le type</button>
+        </form>
+        <p class="small text-muted mt-3 mb-0">
+          Le type sert de modèle : à la saisie d'un équipement, le constructeur,
+          le modèle et la criticité sont pré-remplis (équivalent des
+          « modèles d'appareils » de Wincat).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div id="type-region">
+      {% include "partials/equipment_types_table.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

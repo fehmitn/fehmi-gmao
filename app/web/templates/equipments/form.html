@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <form method="post" action="{% if mode == 'create' %}/equipments{% else %}/equipments/{{ equipment.id }}/update{% endif %}"
+          class="card">
+      <div class="card-header">
+        {% if mode == 'create' %}Saisie d'un équipement{% else %}Modification de {{ equipment.code }}{% endif %}
+      </div>
+      <div class="card-body">
+        <fieldset>
+          <legend class="h6 text-uppercase text-muted">Identification</legend>
+          <div class="row g-2 mb-3">
+            <div class="col-md-3">
+              <label class="form-label" for="eq-code">Code *</label>
+              <input class="form-control" id="eq-code" name="code" required
+                     value="{{ equipment.code if equipment else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="eq-name">Désignation *</label>
+              <input class="form-control" id="eq-name" name="name" required
+                     value="{{ equipment.name if equipment else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-type">Type</label>
+              <select class="form-select" id="eq-type" name="equipment_type_id"
+                      data-prefill="true"
+                      data-prefill-target="eq-manufacturer,eq-model,eq-criticality">
+                <option value="">— aucun —</option>
+                {% for type in equipment_types %}
+                <option value="{{ type.id }}"
+                        data-manufacturer="{{ type.manufacturer or '' }}"
+                        data-model="{{ type.model or '' }}"
+                        data-criticality="{{ type.criticality or '' }}"
+                        {% if equipment and equipment.equipment_type_id == type.id %}selected{% endif %}>
+                  {{ type.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="eq-desc">Description</label>
+              <textarea class="form-control" id="eq-desc" name="description" rows="2">{{ equipment.description if equipment and equipment.description else '' }}</textarea>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="mt-3">
+          <legend class="h6 text-uppercase text-muted">Implantation</legend>
+          <div class="row g-2">
+            {% if mode == 'create' %}
+            <div class="col-md-4">
+              <label class="form-label" for="eq-site">Usine *</label>
+              <select class="form-select" id="eq-site" name="site_id" data-location-filter="true">
+                {% for site in sites %}
+                <option value="{{ site.id }}" {% if site.id == selected_site %}selected{% endif %}>
+                  {{ site.code }} — {{ site.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="eq-location">Emplacement *</label>
+              <select class="form-select" id="eq-location" name="location_id" required>
+                <option value="">— choisir —</option>
+                {% for location in locations %}
+                <option value="{{ location.id }}" data-site="{{ location.site_id }}">
+                  {{ location.code }} — {{ location.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="eq-effective">Date d'effet</label>
+              <input class="form-control" type="date" id="eq-effective" name="effective_from"
+                     data-backdate-source="true" value="{{ app_today().isoformat() }}">
+              <div class="form-text">Date d'implantation dans l'application.</div>
+            </div>
+            <div class="col-12" id="derogation-block" style="display:none;">
+              <div class="alert alert-warning mb-0">
+                <label class="form-label fw-semibold" for="eq-derogation">
+                  Motif de la saisie rétroactive *
+                </label>
+                <textarea class="form-control" id="eq-derogation" name="derogation_reason" rows="2"
+                          placeholder="Ex. : reprise de l'inventaire papier de l'atelier, machine acquise avant la mise en service du GMAO."></textarea>
+                <div class="form-text">
+                  Une date antérieure à aujourd'hui est autorisée, mais elle doit être justifiée
+                  et sera journalisée (auteur, motif, retard en jours).
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <div class="col-md-12">
+              <div class="alert alert-secondary mb-0">
+                Emplacement actuel : <strong>{{ equipment.current_location_code }}</strong>
+                ({{ equipment.current_location_path }}).
+                Pour le changer, utilisez la fiche de l'équipement
+                (« Déplacer l'équipement »).
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </fieldset>
+
+        <fieldset class="mt-3">
+          <legend class="h6 text-uppercase text-muted">Caractéristiques</legend>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label" for="eq-manufacturer">Constructeur</label>
+              <input class="form-control" id="eq-manufacturer" name="manufacturer"
+                     value="{{ equipment.manufacturer if equipment and equipment.manufacturer else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="eq-model">Modèle</label>
+              <input class="form-control" id="eq-model" name="model"
+                     value="{{ equipment.model if equipment and equipment.model else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="eq-serial">N° de série</label>
+              <input class="form-control" id="eq-serial" name="serial_number"
+                     value="{{ equipment.serial_number if equipment and equipment.serial_number else '' }}">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="mt-3">
+          <legend class="h6 text-uppercase text-muted">Cycle de vie</legend>
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label" for="eq-status">Statut</label>
+              <select class="form-select" id="eq-status" name="status">
+                {% for status in statuses %}
+                <option value="{{ status.value }}"
+                        {% if equipment and equipment.status == status.value %}selected{% endif %}>
+                  {{ status.value }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-criticality">Criticité</label>
+              <select class="form-select" id="eq-criticality" name="criticality">
+                <option value="">—</option>
+                <option value="A" {% if equipment and equipment.criticality == 'A' %}selected{% endif %}>A</option>
+                <option value="B" {% if equipment and equipment.criticality == 'B' %}selected{% endif %}>B</option>
+                <option value="C" {% if equipment and equipment.criticality == 'C' %}selected{% endif %}>C</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-purchase">Date d'achat</label>
+              <input class="form-control" type="date" id="eq-purchase" name="purchase_date"
+                     value="{{ equipment.purchase_date.isoformat() if equipment and equipment.purchase_date else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-commissioning">Mise en service</label>
+              <input class="form-control" type="date" id="eq-commissioning" name="commissioning_date"
+                     value="{{ equipment.commissioning_date.isoformat() if equipment and equipment.commissioning_date else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-cost">Coût d'acquisition (DH)</label>
+              <input class="form-control" id="eq-cost" name="acquisition_cost" inputmode="decimal"
+                     value="{{ equipment.acquisition_cost if equipment and equipment.acquisition_cost else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="eq-warranty">Fin de garantie</label>
+              <input class="form-control" type="date" id="eq-warranty" name="warranty_end_date"
+                     value="{{ equipment.warranty_end_date.isoformat() if equipment and equipment.warranty_end_date else '' }}">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="eq-critical" name="is_critical" value="1"
+                       {% if equipment and equipment.is_critical %}checked{% endif %}>
+                <label class="form-check-label" for="eq-critical">Équipement critique</label>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <button class="btn btn-primary" type="submit">
+          {% if mode == 'create' %}Enregistrer l'équipement{% else %}Enregistrer{% endif %}
+        </button>
+        <a class="btn btn-outline-secondary" href="/equipments">Annuler</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Aide à la saisie</div>
+      <div class="card-body small">
+        <p><strong>Champs obligatoires :</strong> code, désignation, emplacement.</p>
+        <p>
+          Le <strong>type d'équipement</strong> pré-remplit le constructeur, le modèle et la
+          criticité. Un code déjà utilisé est refusé.
+        </p>
+        <p>
+          Si la <strong>date d'effet</strong> est antérieure à aujourd'hui, un
+          <strong>motif de dérogation</strong> est exigé : c'est la règle pédagogique
+          de la saisie rétroactive.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
