@@ -8,7 +8,12 @@ __pycache__/
 .ruff_cache/
 .env
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 *.sqlite3-journal
 .idea/
 .vscode/
+
+# Données locales / volume de données bindé
+/data/

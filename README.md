@@ -65,8 +65,8 @@ a posteriori.
 ```bash
 cd gmao-app
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt      # Windows
-# pip install -r requirements.txt                   # Linux / macOS
+.venv\Scripts\pip install -r requirements-dev.txt   # Windows
+# pip install -r requirements-dev.txt                # Linux / macOS
 
 .venv\Scripts\alembic.exe upgrade head              # crée le schéma
 .venv\Scripts\python.exe scripts\seed.py            # jeu de démonstration
@@ -195,8 +195,14 @@ gmao-app/
 │   ├── database.py            moteur SQLAlchemy + PRAGMA SQLite
 │   ├── errors.py             exceptions du domaine
 │   └── main.py               point d'entrée (API + web + statique)
+├── docker/
+│   └── entrypoint.sh         migrations + seed optionnel + uvicorn
 ├── scripts/seed.py           jeu de démonstration
-└── tests/                    58 tests pytest
+├── scripts/backup.py         sauvegarde à chaud de la base SQLite
+├── tests/                    58 tests pytest
+├── Dockerfile                image de production (un seul conteneur)
+├── docker-compose.yml        service unique + volume de données
+└── requirements.txt          dépendances de production
 ```
 
 **Choix techniques notables**
@@ -205,6 +211,8 @@ gmao-app/
   l'application fonctionne sans connexion internet.
 - **`PRAGMA foreign_keys=ON`** est activé à chaque connexion SQLite : les
   clés étrangères sont réellement appliquées.
+- **Mode WAL + `busy_timeout`** : les lectures ne bloquent plus l'écriture et
+  les accès concurrents attendent au lieu d'échouer sur « database is locked ».
 - **Index unique partiel** sur `equipment_locations(equipment_id)` quand
   `effective_to IS NULL` : une seule implantation ouverte par équipement,
   garantie par la base et non seulement par le code.
@@ -221,6 +229,10 @@ gmao-app/
 
 La base de test est un fichier SQLite temporaire et la date du jour est
 figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
+
+> Les tests de développement nécessitent `requirements-dev.txt`
+> (`pytest`, `httpx`) ; l'image de production n'embarque que
+> `requirements.txt`.
 
 | Fichier | Couverture |
 |---|---|
@@ -246,10 +258,103 @@ rôles (le champ `users.role` est déjà en place).
 
 ---
 
-## 9. Historique
+## 9. Déploiement Docker (un seul conteneur)
+
+L'application est déployable telle quelle : **un conteneur unique** qui
+contient le serveur (FastAPI + uvicorn) **et** la base SQLite. Aucune base
+de données externe, aucun service annexe.
+
+```
+┌─ conteneur "gmao" (python:3.12-slim, utilisateur non-root) ───────┐
+│  /app     code applicatif (lecture seule)                         │
+│  /data ◄── volume Docker "gmao-data"  (gmao.db, -wal, -shm)       │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+> **Pourquoi un volume ?** La couche inscriptible d'un conteneur est
+> éphémère : `docker compose down`, ou la reconstruction de l'image,
+> effacerait le fichier `gmao.db`. Le volume Docker le persiste sur le
+> disque de la machine hôte. Le conteneur contient bien « le serveur et
+> les données », mais les données survivent au conteneur.
+
+### Démarrage
+
+```bash
+docker compose up -d --build     # construire et démarrer
+docker compose logs -f           # suivre les logs
+docker compose ps                # état + santé du conteneur
+```
+
+| URL | Contenu |
+|---|---|
+| http://localhost:8000/ | Interface web (tableau de bord) |
+| http://localhost:8000/docs | Documentation interactive de l'API |
+| http://localhost:8000/health | Sonde de santé (ping de la base) |
+
+### Séquence de démarrage
+
+`docker/entrypoint.sh` s'exécute avant uvicorn :
+
+1. `alembic upgrade head` — crée le schéma et les données de référence
+   (types d'emplacements, utilisateurs). Une erreur de migration **arrête**
+   le conteneur : mieux vaut un échec visible qu'un schéma obsolète.
+2. `python scripts/seed.py` — uniquement si `GMAO_SEED=true`. Le script
+   détecte un jeu déjà présent et ne fait rien : il est rejouable sans
+   risque.
+3. `exec uvicorn app.main:app --workers 1` — **un seul worker**, car
+   plusieurs processus ouvrent des connexions concurrentes sur le même
+   fichier SQLite.
+
+### Configuration
+
+Les variables sont définies dans `docker-compose.yml` :
+
+| Variable | Rôle |
+|---|---|
+| `DATABASE_URL` | `sqlite:////data/gmao.db` (4 barres = chemin absolu) |
+| `GMAO_DATA_DIR` | `/data`, point de montage du volume |
+| `GMAO_SEED` | `true` pour charger le jeu de démonstration au démarrage |
+| `SQLITE_BUSY_TIMEOUT_MS` | attente sur verrou SQLite (5000 par défaut) |
+| `TZ` | `Africa/Casablanca` — sans `tzdata` dans l'image, le conteneur resterait en UTC et « aujourd'hui » serait décalé d'un jour |
+
+Ne jamais définir `GMAO_TODAY` en production : la date du jour doit être
+réelle.
+
+### Sauvegarde
+
+La base vit dans la machine virtuelle de Docker Desktop : pour l'examiner
+ou la sauvegarder, on passe par `docker cp` ou le script dédié.
+
+```bash
+# Sauvegarde à chaud (cohérente même pendant les écritures)
+docker compose exec gmao python scripts/backup.py
+docker cp gmao:/data/backup/gmao-20261022-101500.db .\sauvegardes\
+
+# Copie brute à froid (conteneur arrêté)
+docker compose stop
+docker cp gmao:/data/gmao.db .\sauvegardes\gmao.db
+docker compose start
+```
+
+`scripts/backup.py` utilise l'API de sauvegarde de SQLite
+(`connection.backup`) : un simple `cp` du fichier `.db` ne garantit rien en
+mode WAL, où les écritures récentes vivent dans le fichier `-wal`.
+
+### Cycle de vie du volume
+
+```bash
+docker compose down      # arrête le conteneur, conserve le volume
+docker compose down -v   # supprime AUSSI la base : à manier avec prudence
+```
+
+---
+
+## 10. Historique
 
 - **v0.1** — prototype minimal : une table `equipments` avec l'emplacement
   en texte libre.
 - **v0.2** — refonte complète (ce document) : modèle WinMaint transposé,
   arborescence d'emplacements multi-usines, historique d'implantation,
   moteur de rétrodatation, API REST + interface web, migrations Alembic.
+- **v0.2.1** — déploiement conteneurisé : image Docker, service unique avec
+  volume de données SQLite, migrations au démarrage, sauvegarde à chaud.

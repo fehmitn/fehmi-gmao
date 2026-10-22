@@ -1,0 +1,51 @@
+# Déploiement GMAO — un seul conteneur : le serveur ET les données SQLite.
+#
+#   docker compose up -d --build      # construire et démarrer
+#   docker compose logs -f            # suivre les logs
+#   docker compose ps                 # état + santé
+#   docker compose down               # arrêter (les données sont conservées)
+#   docker compose down -v            # ATTENTION : supprime aussi la base
+#
+# Interface  : http://localhost:8000/
+# API /docs  : http://localhost:8000/docs
+
+services:
+  gmao:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gmao-app:0.2
+    container_name: gmao
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      # 4 barres obliques = chemin absolu dans le conteneur.
+      DATABASE_URL: sqlite:////data/gmao.db
+      GMAO_DATA_DIR: /data
+      # Jeu de démonstration au premier démarrage (rejouable sans risque).
+      GMAO_SEED: "true"
+      # Attente sur verrou SQLite (ms).
+      SQLITE_BUSY_TIMEOUT_MS: "5000"
+      TZ: Africa/Casablanca
+
+    volumes:
+      # Volume nommé : la base survit à la recréation de l'image.
+      - gmao-data:/data
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  gmao-data:
+    name: gmao-data

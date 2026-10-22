@@ -1,0 +1,30 @@
+# Contexte de build : on n'envoie au démon que le nécessaire.
+.git/
+.gitignore
+.github/
+
+# Environnement de développement
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets et données locales : jamais dans l'image.
+.env
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Hors production
+tests/
+README.md
+docs/

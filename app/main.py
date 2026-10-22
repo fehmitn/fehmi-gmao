@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api import (
     audit_router,
@@ -23,7 +24,7 @@ from app.api import (
     sites_router,
 )
 from app.config import STATIC_DIR
-from app.database import init_db
+from app.database import engine, init_db
 from app.errors import DomainError
 from app.web.router import router as web_router
 
@@ -66,4 +67,11 @@ async def domain_error_handler(_request: Request, exc: DomainError) -> JSONRespo
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Sonde de santé : interroge réellement la base.
+
+    Le HEALTHCHECK du conteneur s'appuie sur cette route ; un simple
+    « status: ok » ne détecterait pas une base verrouillée ou absente.
+    """
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
     return {"status": "ok"}
