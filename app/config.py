@@ -45,6 +45,12 @@ STATIC_DIR = Path(__file__).resolve().parent / "web" / "static"
 #: Nom du cookie qui mémorise l'utilisateur courant (audit).
 CURRENT_USER_COOKIE = "gmao_current_user"
 
+#: Clé de signature du cookie de session. À surcharger en production.
+SESSION_SECRET = os.getenv("GMAO_SESSION_SECRET") or "gmao-dev-secret-change-me"
+
+#: Durée de validité d'une session (7 jours).
+SESSION_MAX_AGE_SECONDS = int(os.getenv("GMAO_SESSION_MAX_AGE") or str(7 * 24 * 3600))
+
 #: Utilisateur système utilisé quand aucun cookie n'est posé.
 SYSTEM_USERNAME = "systeme"
 

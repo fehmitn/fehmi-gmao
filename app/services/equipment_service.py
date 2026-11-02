@@ -120,6 +120,8 @@ class EquipmentService:
             ),
             warranty_end_date=payload.warranty_end_date,
             is_critical=payload.is_critical,
+            operating_hours=payload.operating_hours,
+            initial_operating_hours=payload.initial_operating_hours or 0,
         )
         self.db.add(equipment)
         self.db.flush()
@@ -196,6 +198,10 @@ class EquipmentService:
             equipment.is_critical = bool(data["is_critical"])
         if "is_active" in data and data["is_active"] is not None:
             equipment.is_active = bool(data["is_active"])
+        if "operating_hours" in data:
+            equipment.operating_hours = data["operating_hours"]
+        if "initial_operating_hours" in data and data["initial_operating_hours"] is not None:
+            equipment.initial_operating_hours = int(data["initial_operating_hours"])
 
         equipment = self.repository.save(equipment)
         self.audit.record(

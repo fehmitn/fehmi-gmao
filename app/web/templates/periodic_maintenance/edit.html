@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="/equipment-types/{{ equipment_type.id }}">Retour</a>
+{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    {% set form_action = "/equipment-types/" ~ equipment_type.id ~ "/periodic-maintenances/" ~ maintenance.id ~ "/update" %}
+    {% include "partials/periodic_maintenance_form.html" %}
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Rattachement</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Famille</dt>
+          <dd class="col-sm-7">{{ equipment_type.code }} — {{ equipment_type.name }}</dd>
+          <dt class="col-sm-5">Fournisseur</dt>
+          <dd class="col-sm-7">{{ maintenance.supplier_name or '—' }}</dd>
+          <dt class="col-sm-5">Réalisations</dt>
+          <dd class="col-sm-7">{{ maintenance.execution_count }}</dd>
+        </dl>
+        {% if maintenance.execution_count %}
+        <div class="alert alert-warning mt-3 mb-0 small">
+          Des réalisations d'OT sont rattachées à cette règle : la suppression est
+          refusée afin de préserver l'historique des retards.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.equipment_location import EquipmentLocation
@@ -20,6 +20,24 @@ class EquipmentLocationRepository:
             select(EquipmentLocation)
             .where(EquipmentLocation.equipment_id == equipment_id)
             .order_by(EquipmentLocation.effective_from.desc(), EquipmentLocation.id.desc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def first_placement_dates(self) -> dict[int, date]:
+        """Date de première implantation, par équipement."""
+        stmt = select(
+            EquipmentLocation.equipment_id,
+            func.min(EquipmentLocation.effective_from),
+        ).group_by(EquipmentLocation.equipment_id)
+        return {
+            int(equipment_id): first_date
+            for equipment_id, first_date in self.db.execute(stmt).all()
+        }
+
+    def open_placements(self) -> list[EquipmentLocation]:
+        """Toutes les implantations en cours (une par équipement au plus)."""
+        stmt = select(EquipmentLocation).where(
+            EquipmentLocation.effective_to.is_(None)
         )
         return list(self.db.scalars(stmt).all())
 

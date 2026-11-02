@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card border-danger">
+  <div class="card-header bg-danger text-white">Erreur</div>
+  <div class="card-body">
+    <p class="mb-3">{{ message }}</p>
+    <a class="btn btn-outline-secondary" href="javascript:history.back()">Retour</a>
+    <a class="btn btn-primary" href="/">Tableau de bord</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">Connexion à la GMAO</div>
+      <div class="card-body">
+        {% if err %}
+        <div class="alert alert-danger">{{ err }}</div>
+        {% endif %}
+        <form method="post" action="/login">
+          <input type="hidden" name="next" value="{{ next }}">
+          <div class="mb-3">
+            <label class="form-label" for="login-username">Identifiant</label>
+            <input class="form-control" id="login-username" name="username" required autocomplete="username">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="login-password">Mot de passe</label>
+            <input class="form-control" id="login-password" type="password" name="password" required autocomplete="current-password">
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Se connecter</button>
+        </form>
+      </div>
+      <div class="card-footer small text-muted">
+        Comptes de démonstration : admin / responsable / technicien / lecture (mot de passe à configurer par l'administrateur).
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

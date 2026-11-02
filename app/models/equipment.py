@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, IdMixin, TimestampMixin
@@ -48,6 +48,8 @@ class Equipment(IdMixin, TimestampMixin, Base):
     warranty_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    operating_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_operating_hours: Mapped[int] = mapped_column(Integer, default=0)
 
     site: Mapped["Site"] = relationship(back_populates="equipments")
     equipment_type: Mapped["EquipmentType | None"] = relationship(back_populates="equipments")
@@ -55,6 +57,12 @@ class Equipment(IdMixin, TimestampMixin, Base):
         back_populates="equipment",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    maintenance_executions: Mapped[list["MaintenanceExecution"]] = relationship(
+        back_populates="equipment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="MaintenanceExecution.performed_on.desc()",
     )
 
     def __str__(self) -> str:

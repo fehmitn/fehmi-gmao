@@ -56,6 +56,16 @@
 
           <dt class="col-sm-4">Fin de garantie</dt>
           <dd class="col-sm-8">{{ equipment.warranty_end_date.strftime('%d/%m/%Y') if equipment.warranty_end_date else '—' }}</dd>
+
+          <dt class="col-sm-4">Compteur horaire</dt>
+          <dd class="col-sm-8">
+            {% if equipment.operating_hours is not none %}
+            <strong>{{ equipment.operating_hours }} h</strong>
+            {% else %}
+            <span class="badge text-bg-warning">relevé non renseigné</span>
+            {% endif %}
+            <div class="small text-muted">Heures initiales : {{ equipment.initial_operating_hours }} h</div>
+          </dd>
         </dl>
       </div>
     </div>
@@ -93,6 +103,102 @@
             </tr>
           {% else %}
             <tr><td colspan="6" class="text-muted">Aucun historique d'implantation.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Maintenance périodique héritée</span>
+        {% if equipment.equipment_type_id %}
+        <a class="small" href="/equipment-types/{{ equipment.equipment_type_id }}">Voir la famille</a>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr>
+            <th>Opération</th><th>Périodicité</th><th>Fournisseur</th>
+            <th>Échéance</th><th>Statut</th>
+          </tr></thead>
+          <tbody>
+          {% for row in schedule_rows %}
+            <tr>
+              <td>
+                {{ row.operation_code }} — {{ row.operation_label }}
+                <div class="small text-muted">{{ row.maintenance_type_label }}</div>
+              </td>
+              <td>{{ row.periodicity_label }}</td>
+              <td>{{ row.supplier_name or '—' }}</td>
+              <td class="text-nowrap">
+                {% if row.is_hour_based %}
+                  {% if row.due_operating_hours is not none %}
+                  seuil {{ row.due_operating_hours }} h
+                  <div class="small text-muted">compteur : {{ row.current_operating_hours }} h</div>
+                  {% if row.hours_remaining is not none %}
+                  <div class="small text-muted">
+                    {% if row.hours_remaining < 0 %}{{ -row.hours_remaining }} h de dépassement
+                    {% elif row.hours_remaining == 0 %}seuil atteint
+                    {% else %}dans {{ row.hours_remaining }} h{% endif %}
+                  </div>
+                  {% endif %}
+                  {% else %}—{% endif %}
+                {% else %}
+                  {{ row.due_date.strftime('%d/%m/%Y') if row.due_date else '—' }}
+                  {% if row.days_remaining is not none %}
+                  <div class="small text-muted">
+                    {% if row.days_remaining < 0 %}{{ -row.days_remaining }} j de retard
+                    {% elif row.days_remaining == 0 %}aujourd'hui
+                    {% else %}dans {{ row.days_remaining }} j{% endif %}
+                  </div>
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td><span class="badge {{ row.status_css }}">{{ row.status_label }}</span></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="text-muted">
+              {% if equipment.equipment_type_id %}
+              Aucune contrainte périodique active pour cette famille.
+              {% else %}
+              Cet équipement n'est rattaché à aucune famille.
+              {% endif %}
+            </td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">Réalisations de maintenance périodique</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr>
+            <th>Réalisé le</th><th>Opération</th><th>Échéance de référence</th>
+            <th>Écart</th><th>Compteur</th><th>Par</th><th>Notes</th>
+          </tr></thead>
+          <tbody>
+          {% for execution in maintenance_executions %}
+            <tr>
+              <td class="text-nowrap">{{ execution.performed_on.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {{ execution.maintenance_code or '—' }}
+                <div class="small text-muted">{{ execution.maintenance_label or '' }}</div>
+              </td>
+              <td class="text-nowrap">{{ execution.theoretical_due_date.strftime('%d/%m/%Y') if execution.theoretical_due_date else '—' }}</td>
+              <td class="text-nowrap">
+                {% if execution.delay_label %}
+                <span class="badge {{ execution.delay_css }}">{{ execution.delay_label }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-nowrap">{{ execution.operating_hours ~ ' h' if execution.operating_hours is not none else '—' }}</td>
+              <td>{{ execution.performed_by_name or '—' }}</td>
+              <td class="small">{{ execution.notes or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="7" class="text-muted">Aucune réalisation enregistrée.</td></tr>
           {% endfor %}
           </tbody>
         </table>
@@ -167,6 +273,65 @@
             le journal d'audit.
           {% endif %}
         </p>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">Saisir la réalisation d'un ordre de travail</div>
+      <div class="card-body">
+        {% if schedule_rows %}
+        <form method="post" action="/equipments/{{ equipment.id }}/maintenance-executions">
+          <div class="mb-2">
+            <label class="form-label" for="exec-rule">Opération périodique *</label>
+            <select class="form-select" id="exec-rule" name="periodic_maintenance_id" required>
+              <option value="">— choisir —</option>
+              {% for row in schedule_rows %}
+              <option value="{{ row.periodic_maintenance_id }}">
+                {{ row.operation_code }} — {{ row.operation_label }} ({{ row.periodicity_label }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="exec-date">Date de réalisation</label>
+            <input class="form-control" type="date" id="exec-date" name="performed_on"
+                   max="{{ app_today().isoformat() }}" value="{{ app_today().isoformat() }}">
+            <div class="form-text">Obligatoire pour les périodicités calendaires.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="exec-hours">Relevé du compteur horaire (h)</label>
+            <input class="form-control" type="number" min="0" step="1" id="exec-hours" name="operating_hours"
+                   value="{{ equipment.operating_hours if equipment.operating_hours is not none else '' }}">
+            <div class="form-text">Obligatoire pour les maintenances en heures de fonctionnement.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="exec-user">Réalisé par</label>
+            <select class="form-select" id="exec-user" name="performed_by_id">
+              <option value="">— non précisé —</option>
+              {% for user in users %}
+              <option value="{{ user.id }}" {% if current_user and current_user.id == user.id %}selected{% endif %}>
+                {{ user.display_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="exec-notes">Notes</label>
+            <textarea class="form-control" id="exec-notes" name="notes" rows="2"
+                      placeholder="Constat, pièces remplacées…"></textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Enregistrer la réalisation</button>
+        </form>
+        <p class="small text-muted mt-3 mb-0">
+          L'échéance théorique de référence et l'écart en jours sont figés au moment
+          de la saisie. La date du futur est refusée.
+        </p>
+        {% else %}
+        <p class="text-muted mb-0">
+          Aucune opération périodique active n'est disponible pour cet équipement.
+          Rattachez-le à une famille disposant de contraintes de maintenance.
+        </p>
+        {% endif %}
       </div>
     </div>
   </div>

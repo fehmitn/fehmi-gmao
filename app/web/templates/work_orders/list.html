@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap align-items-center">
+  {% if current_user and current_user.role in ['responsable','admin'] %}
+  <form class="d-inline" method="post" action="/work-orders/generate" onsubmit="return confirm('Générer un OT pour chaque échéance à traiter (sans doublon ouvert) ?');">
+    <div class="d-flex gap-2 align-items-center">
+      <select class="form-select form-select-sm" name="assigned_to_id">
+        <option value="">Affecter à... (aucun)</option>
+        {% for tech in technicians %}
+        <option value="{{ tech.id }}">{{ tech.display_name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-outline-primary" type="submit">Générer depuis l'échéancier</button>
+    </div>
+  </form>
+  {% endif %}
+  <a class="btn btn-outline-secondary" href="/work-orders?mine=1">Mes OT</a>
+  <a class="btn btn-outline-secondary" href="/work-orders">Tous les OT</a>
+  <a class="btn btn-outline-secondary" href="/maintenance-schedule">Voir l'échéancier</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Tous</div>
+      <div class="fs-3 fw-bold">{{ counts.all }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Ouverts</div>
+      <div class="fs-3 fw-bold text-danger">{{ counts.open }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Affectés</div>
+      <div class="fs-3 fw-bold text-warning">{{ counts.assigned }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">En cours</div>
+      <div class="fs-3 fw-bold text-info">{{ counts.in_progress }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Terminés</div>
+      <div class="fs-3 fw-bold text-success">{{ counts.done }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Filtres</div>
+  <div class="card-body">
+    <form method="get" action="/work-orders" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Statut</label>
+        <select class="form-select" name="status">
+          <option value="">Tous</option>
+          {% for s in statuses %}
+          <option value="{{ s.value }}" {% if filters.status == s.value %}selected{% endif %}>{{ s.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Affecté à</label>
+        <select class="form-select" name="assigned_to_id">
+          <option value="">Tous</option>
+          {% for tech in technicians %}
+          <option value="{{ tech.id }}" {% if filters.assigned_to_id == tech.id %}selected{% endif %}>{{ tech.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Recherche</label>
+        <input class="form-control" name="search" value="{{ filters.search or '' }}" placeholder="Code OT, équipement, opération...">
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary" href="/work-orders">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Fiche de consultation des OT ouverts</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>OT</th>
+          <th>Équipement</th>
+          <th>Opération</th>
+          <th>Échéance</th>
+          <th>Priorité</th>
+          <th>Statut</th>
+          <th>Affecté à</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for wo in work_orders %}
+        <tr>
+          <td class="fw-semibold">{{ wo.code }}</td>
+          <td>
+            <a href="/equipments/{{ wo.equipment_id }}">{{ wo.equipment_code }}</a>
+            <div class="small text-muted">{{ wo.equipment_name }}</div>
+          </td>
+          <td>
+            {{ wo.operation_label or wo.description or '—' }}
+            <div class="small text-muted">{{ wo.operation_code or 'Générique' }}</div>
+          </td>
+          <td class="text-nowrap">
+            {% if wo.due_date %}
+            {{ wo.due_date.strftime('%d/%m/%Y') }}
+            {% elif wo.due_operating_hours %}
+            {{ wo.due_operating_hours }} h
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ wo.priority_label }}</td>
+          <td><span class="badge {{ wo.status_css }}">{{ wo.status_label }}</span></td>
+          <td>{{ wo.assigned_to_name or 'Non affecté' }}</td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end flex-wrap">
+              {% if not wo.assigned_to_id and current_user and current_user.role in ['technicien','responsable','admin'] %}
+              <form method="post" action="/work-orders/{{ wo.id }}/take">
+                <button class="btn btn-sm btn-success">Me l'affecter</button>
+              </form>
+              {% endif %}
+              {% if current_user and current_user.role in ['responsable','admin'] %}
+              <details>
+                <summary class="btn btn-sm btn-outline-primary">Affecter</summary>
+                <form class="mt-2 text-start" style="min-width: 200px;" method="post" action="/work-orders/{{ wo.id }}/assign">
+                  <select class="form-select form-select-sm mb-2" name="assigned_to_id">
+                    <option value="">Non affecté</option>
+                    {% for tech in technicians %}
+                    <option value="{{ tech.id }}" {% if wo.assigned_to_id == tech.id %}selected{% endif %}>{{ tech.display_name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn btn-sm btn-primary">Valider</button>
+                </form>
+              </details>
+              {% endif %}
+              <form method="post" action="/work-orders/{{ wo.id }}/status">
+                <input type="hidden" name="status" value="in_progress">
+                <button class="btn btn-sm btn-outline-info">Prendre en charge</button>
+              </form>
+              <form method="post" action="/work-orders/{{ wo.id }}/status">
+                <input type="hidden" name="status" value="done">
+                <button class="btn btn-sm btn-outline-success">Terminer</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-muted">Aucun OT à afficher. Utilisez « Générer depuis l'échéancier » pour créer les OT ouverts à partir des échéances à traiter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

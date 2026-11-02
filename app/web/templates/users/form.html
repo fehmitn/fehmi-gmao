@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="/users">Retour à la liste</a>
+{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">{% if user %}Modifier {{ user.display_name }}{% else %}Nouvel utilisateur{% endif %}</div>
+      <div class="card-body">
+        <form method="post" action="{{ '/users/' ~ user.id if user else '/users' }}">
+          <div class="mb-3">
+            <label class="form-label">Identifiant *</label>
+            <input class="form-control" name="username" required value="{{ user.username if user else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nom affiché *</label>
+            <input class="form-control" name="display_name" required value="{{ user.display_name if user else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Rôle *</label>
+            <select class="form-select" name="role" required>
+              {% for r in roles %}
+              <option value="{{ r.value }}" {% if user and user.role == r.value %}selected{% endif %}>{{ r.value }} — {{ r.label if r.label else r.value }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Mot de passe {% if user %}(laisser vide pour ne pas changer){% else %}*{% endif %}</label>
+            <input class="form-control" type="password" name="password" {% if not user %}required{% endif %} minlength="4" autocomplete="new-password">
+            <div class="form-text">Minimum 4 caractères.</div>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="u-active" {% if user is none or user.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="u-active">Compte actif</label>
+          </div>
+          <button class="btn btn-primary">Enregistrer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

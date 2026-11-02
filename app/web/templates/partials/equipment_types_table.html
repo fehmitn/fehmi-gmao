@@ -12,7 +12,9 @@
       <tbody>
       {% for type in equipment_types %}
         <tr>
-          <td class="fw-semibold">{{ type.code }}</td>
+          <td class="fw-semibold">
+            <a href="/equipment-types/{{ type.id }}">{{ type.code }}</a>
+          </td>
           <td>{{ type.name }}</td>
           <td>{{ type.category }}</td>
           <td>{{ type.manufacturer or '—' }}</td>
@@ -26,6 +28,7 @@
           </td>
           <td class="text-end">{{ type.equipment_count }}</td>
           <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/equipment-types/{{ type.id }}">Maintenances</a>
             <form class="d-inline" method="post" action="/equipment-types/{{ type.id }}/delete"
                   onsubmit="return confirm('Supprimer ce type ?');">
               <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>

@@ -28,6 +28,11 @@ class EquipmentType(IdMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     equipments: Mapped[list["Equipment"]] = relationship(back_populates="equipment_type")
+    periodic_maintenances: Mapped[list["PeriodicMaintenance"]] = relationship(
+        back_populates="equipment_type",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __str__(self) -> str:
         return f"{self.code} - {self.name}"

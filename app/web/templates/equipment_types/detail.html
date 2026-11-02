@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="/equipment-types">Retour aux familles</a>
+<a class="btn btn-outline-primary" href="/maintenance-schedule?equipment_type_id={{ equipment_type.id }}">
+  Voir l'échéancier
+</a>
+{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>{{ equipment_type.code }} — {{ equipment_type.name }}</span>
+        {% if equipment_type.is_active %}
+        <span class="badge text-bg-success">active</span>
+        {% else %}
+        <span class="badge text-bg-secondary">inactive</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Catégorie</dt>
+          <dd class="col-sm-8">{{ equipment_type.category }}</dd>
+
+          <dt class="col-sm-4">Constructeur</dt>
+          <dd class="col-sm-8">{{ equipment_type.manufacturer or '—' }}</dd>
+
+          <dt class="col-sm-4">Modèle</dt>
+          <dd class="col-sm-8">{{ equipment_type.model or '—' }}</dd>
+
+          <dt class="col-sm-4">Criticité</dt>
+          <dd class="col-sm-8">{{ equipment_type.criticality or '—' }}</dd>
+
+          <dt class="col-sm-4">Équipements</dt>
+          <dd class="col-sm-8">{{ equipment_type.equipment_count }}</dd>
+
+          <dt class="col-sm-4">Contraintes périodiques</dt>
+          <dd class="col-sm-8">{{ maintenances|length }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% set form_action = "/equipment-types/" ~ equipment_type.id ~ "/periodic-maintenances" %}
+    {% include "partials/periodic_maintenance_form.html" %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Contraintes de maintenance périodique</span>
+        <span class="badge text-bg-secondary">{{ maintenances|length }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr>
+            <th>Code</th><th>Opération</th><th>Périodicité</th><th>Ancrage</th>
+            <th>Fournisseur</th><th class="text-end">Réalisations</th>
+            <th>État</th><th class="text-end">Actions</th>
+          </tr></thead>
+          <tbody>
+          {% for maintenance in maintenances %}
+            <tr>
+              <td class="fw-semibold">{{ maintenance.code }}</td>
+              <td>
+                {{ maintenance.label }}
+                <div class="small text-muted">{{ maintenance.maintenance_type_label }}</div>
+              </td>
+              <td>
+                {{ maintenance.periodicity_label }}
+                {% if maintenance.tolerance_days %}
+                <div class="small text-muted">tolérance {{ maintenance.tolerance_days }} j</div>
+                {% endif %}
+              </td>
+              <td>
+                {{ maintenance.anchor_label }}
+                {% if maintenance.anchor == 'fixed_date' and maintenance.fixed_date %}
+                <div class="small text-muted">depuis le {{ maintenance.fixed_date.strftime('%d/%m/%Y') }}</div>
+                {% endif %}
+              </td>
+              <td>{{ maintenance.supplier_name or '—' }}</td>
+              <td class="text-end">{{ maintenance.execution_count }}</td>
+              <td>
+                {% if maintenance.is_active %}
+                <span class="badge text-bg-success">active</span>
+                {% else %}
+                <span class="badge text-bg-secondary">inactive</span>
+                {% endif %}
+              </td>
+              <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="/equipment-types/{{ equipment_type.id }}/periodic-maintenances/{{ maintenance.id }}/edit">Modifier</a>
+                <form class="d-inline" method="post"
+                      action="/equipment-types/{{ equipment_type.id }}/periodic-maintenances/{{ maintenance.id }}/delete"
+                      onsubmit="return confirm('Supprimer cette maintenance périodique ?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="text-muted">
+              Aucune contrainte périodique : ajoutez-en une à gauche. Elles seront
+              héritées automatiquement par tous les équipements de la famille.
+            </td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+      <strong>Principe :</strong> les contraintes sont portées par la famille, pas par
+      l'équipement. Le prochain échéancier est recalculé depuis la date d'ancrage de
+      chaque équipement ; la saisie d'une réalisation d'OT fige l'échéance théorique
+      de référence et l'écart en jours afin de logger le retard réel.
+    </div>
+  </div>
+</div>
+{% endblock %}

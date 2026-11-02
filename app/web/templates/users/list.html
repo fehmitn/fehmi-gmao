@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-primary" href="/users/new">Nouvel utilisateur</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Utilisateurs</span>
+    <span class="small text-muted">Gérez les identifiants, rôles et mots de passe.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Identifiant</th>
+          <th>Nom affiché</th>
+          <th>Rôle</th>
+          <th>Actif</th>
+          <th>Mot de passe</th>
+          <th>OT ouverts</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td class="fw-semibold">{{ user.username }}</td>
+          <td>{{ user.display_name }}</td>
+          <td>{{ user.role_label }}</td>
+          <td>{% if user.is_active %}<span class="badge text-bg-success">oui</span>{% else %}<span class="badge text-bg-secondary">non</span>{% endif %}</td>
+          <td>{% if user.has_password %}<span class="badge text-bg-success">configuré</span>{% else %}<span class="badge text-bg-warning">non configuré</span>{% endif %}</td>
+          <td>{{ user.open_work_order_count or 0 }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="/users/{{ user.id }}/edit">Modifier</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted">Aucun utilisateur.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

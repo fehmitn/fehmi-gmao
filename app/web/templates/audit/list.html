@@ -13,6 +13,7 @@
           <option value="delete" {% if request.query_params.get('action') == 'delete' %}selected{% endif %}>delete</option>
           <option value="move" {% if request.query_params.get('action') == 'move' %}selected{% endif %}>move</option>
           <option value="backdate" {% if request.query_params.get('action') == 'backdate' %}selected{% endif %}>backdate</option>
+          <option value="execute" {% if request.query_params.get('action') == 'execute' %}selected{% endif %}>execute</option>
         </select>
       </div>
       <div class="col-md-3">
@@ -23,6 +24,9 @@
           <option value="location" {% if request.query_params.get('entity_type') == 'location' %}selected{% endif %}>location</option>
           <option value="equipment" {% if request.query_params.get('entity_type') == 'equipment' %}selected{% endif %}>equipment</option>
           <option value="equipment_type" {% if request.query_params.get('entity_type') == 'equipment_type' %}selected{% endif %}>equipment_type</option>
+          <option value="maintenance_supplier" {% if request.query_params.get('entity_type') == 'maintenance_supplier' %}selected{% endif %}>maintenance_supplier</option>
+          <option value="periodic_maintenance" {% if request.query_params.get('entity_type') == 'periodic_maintenance' %}selected{% endif %}>periodic_maintenance</option>
+          <option value="maintenance_execution" {% if request.query_params.get('entity_type') == 'maintenance_execution' %}selected{% endif %}>maintenance_execution</option>
         </select>
       </div>
       <div class="col-md-4">
@@ -50,7 +54,7 @@
           <td class="text-nowrap">{{ log.occurred_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
           <td>{{ log.actor_label }}</td>
           <td>
-            <span class="badge {% if log.action == 'backdate' %}text-bg-warning{% elif log.action == 'delete' %}text-bg-danger{% elif log.action == 'create' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
+            <span class="badge {% if log.action == 'backdate' %}text-bg-warning{% elif log.action == 'execute' %}text-bg-info{% elif log.action == 'delete' %}text-bg-danger{% elif log.action == 'create' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
               {{ log.action }}
             </span>
           </td>

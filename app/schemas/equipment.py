@@ -26,6 +26,8 @@ class EquipmentCreate(BaseModel):
     acquisition_cost: Decimal | None = None
     warranty_end_date: date | None = None
     is_critical: bool = False
+    operating_hours: int | None = Field(default=None, ge=0)
+    initial_operating_hours: int = Field(default=0, ge=0)
     effective_from: date | None = Field(
         default=None,
         description="Date d'effet de l'implantation (aujourd'hui par défaut)",
@@ -52,6 +54,8 @@ class EquipmentUpdate(BaseModel):
     warranty_end_date: date | None = None
     is_critical: bool | None = None
     is_active: bool | None = None
+    operating_hours: int | None = Field(default=None, ge=0)
+    initial_operating_hours: int | None = Field(default=None, ge=0)
 
 
 class EquipmentRead(BaseModel):
@@ -74,6 +78,8 @@ class EquipmentRead(BaseModel):
     warranty_end_date: date | None
     is_critical: bool
     is_active: bool
+    operating_hours: int | None = None
+    initial_operating_hours: int = 0
     created_at: datetime
     updated_at: datetime
 
