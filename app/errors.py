@@ -29,6 +29,18 @@ class ValidationError(DomainError):
     status_code = 422
 
 
+class AuthenticationRequiredError(DomainError):
+    """Action réservée aux utilisateurs connectés."""
+
+    status_code = 401
+
+
+class PermissionDeniedError(DomainError):
+    """Rôle ou affectation insuffisants pour effectuer l'action."""
+
+    status_code = 403
+
+
 class BackdatingReasonRequired(ValidationError):
     """Saisie rétroative sans motif de dérogation."""
 

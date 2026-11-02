@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="/interventions">Retour aux interventions</a>
+{% endblock %}
+{% block content %}
+{% if not current_user %}
+<div class="alert alert-warning">
+  Vous devez être <a href="/login">connecté</a> pour créer une demande d'intervention.
+</div>
+{% endif %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Demande d'intervention corrective</div>
+      <div class="card-body">
+        <form method="post" action="/interventions">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="int-equipment">Équipement concerné *</label>
+              <select class="form-select" id="int-equipment" name="equipment_id" required>
+                <option value="">— sélectionner un équipement —</option>
+                {% for equipment in equipments %}
+                <option value="{{ equipment.id }}"
+                        {% if selected_equipment_id and selected_equipment_id == equipment.id %}selected{% endif %}>
+                  {{ equipment.code }} — {{ equipment.name }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-text">
+                Tout équipement actif peut faire l'objet d'une demande, même s'il
+                n'est pas encore affecté à une opération périodique.
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-description">Panne constatée / symptôme *</label>
+              <textarea class="form-control" id="int-description" name="description" rows="4" required
+                        minlength="3" placeholder="Fuite au niveau du joint, bruit anormal, arrêt inopiné…"></textarea>
+              <div class="form-text">
+                Décrivez ce qui est constaté : le responsable de maintenance s'appuie
+                sur cette description pour affecter l'intervention.
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="int-priority">Priorité</label>
+              <select class="form-select" id="int-priority" name="priority">
+                {% for priority in priorities %}
+                <option value="{{ priority.value }}" {% if priority.value == 'normal' %}selected{% endif %}>{{ priority.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="int-due-date">Date souhaitée</label>
+              <input class="form-control" id="int-due-date" name="due_date" type="date">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-notes">Informations complémentaires</label>
+              <textarea class="form-control" id="int-notes" name="notes" rows="2"
+                        placeholder="Contexte, arrêt de production, sécurité…"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit" {% if not current_user %}disabled{% endif %}>
+            Envoyer la demande
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="alert alert-info">
+      <strong>Circuit d'une intervention corrective.</strong>
+      <ol class="mb-0 ps-3 mt-2">
+        <li>Un utilisateur décrit la panne (cette demande).</li>
+        <li>Le responsable de maintenance affecte un technicien.</li>
+        <li>Le technicien saisit l'heure de début, le compte rendu et l'heure de fin.</li>
+        <li>Les pièces sont demandées puis consommées ; la sortie de stock est
+            automatiquement tracée sur l'OT.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}

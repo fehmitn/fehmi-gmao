@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% set closed = intervention.status in ['done', 'cancelled'] %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap">
+  <a class="btn btn-outline-secondary" href="/interventions">Retour aux interventions</a>
+  <a class="btn btn-outline-secondary" href="/equipments/{{ intervention.equipment_id }}">Fiche équipement</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Statut</div>
+      <div class="fs-5 fw-bold"><span class="badge {{ intervention.status_css }}">{{ intervention.status_label }}</span></div>
+      <div class="small text-muted mt-1">{{ intervention.kind_label }} · {{ intervention.priority_label }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Début d'intervention</div>
+      <div class="fs-5 fw-bold">
+        {% if intervention.intervention_started_at %}
+        {{ intervention.intervention_started_at.strftime('%d/%m/%Y %H:%M') }}
+        {% else %}—{% endif %}
+      </div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Fin d'intervention</div>
+      <div class="fs-5 fw-bold">
+        {% if intervention.intervention_ended_at %}
+        {{ intervention.intervention_ended_at.strftime('%d/%m/%Y %H:%M') }}
+        {% else %}—{% endif %}
+      </div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Durée de l'opération</div>
+      <div class="fs-5 fw-bold">{{ intervention.intervention_duration_label or '—' }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header">Demande</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">OT</dt><dd class="col-sm-7 fw-semibold">{{ intervention.code }}</dd>
+          <dt class="col-sm-5">Équipement</dt>
+          <dd class="col-sm-7">
+            <a href="/equipments/{{ intervention.equipment_id }}">{{ intervention.equipment_code }}</a>
+            — {{ intervention.equipment_name }}
+          </dd>
+          <dt class="col-sm-5">Demandeur</dt><dd class="col-sm-7">{{ intervention.created_by_name or '—' }}</dd>
+          <dt class="col-sm-5">Demandée le</dt><dd class="col-sm-7">{{ intervention.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+          <dt class="col-sm-5">Date souhaitée</dt>
+          <dd class="col-sm-7">{{ intervention.due_date.strftime('%d/%m/%Y') if intervention.due_date else '—' }}</dd>
+          <dt class="col-sm-5">Technicien affecté</dt>
+          <dd class="col-sm-7">{{ intervention.assigned_to_name or 'Non affecté' }}</dd>
+          <dt class="col-sm-5">Priorité</dt><dd class="col-sm-7">{{ intervention.priority_label }}</dd>
+        </dl>
+        <hr>
+        <div class="small text-muted">Panne constatée / symptôme</div>
+        <p class="mb-0" style="white-space: pre-line;">{{ intervention.description or '—' }}</p>
+        {% if intervention.work_done %}
+        <hr>
+        <div class="small text-muted">Compte rendu de l'intervention</div>
+        <p class="mb-0" style="white-space: pre-line;">{{ intervention.work_done }}</p>
+        {% endif %}
+        {% if intervention.notes %}
+        <hr>
+        <div class="small text-muted">Notes et suivi</div>
+        <p class="mb-0" style="white-space: pre-line;">{{ intervention.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if can_manage and not closed %}
+    <div class="card mb-4">
+      <div class="card-header">Affectation</div>
+      <div class="card-body">
+        {% if intervention.status == 'in_progress' %}
+        <p class="text-muted mb-0">
+          L'intervention est en cours : l'affectation ne peut plus être modifiée.
+        </p>
+        {% else %}
+        <form method="post" action="/interventions/{{ intervention.id }}/assign">
+          <label class="form-label" for="int-assignee">Technicien en charge</label>
+          <select class="form-select" id="int-assignee" name="assigned_to_id">
+            <option value="">Non affecté</option>
+            {% for tech in technicians %}
+            <option value="{{ tech.id }}" {% if intervention.assigned_to_id == tech.id %}selected{% endif %}>
+              {{ tech.display_name }} ({{ tech.role_label }})
+            </option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-primary mt-3" type="submit">Enregistrer l'affectation</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if can_intervene and intervention.status in ['open', 'assigned'] %}
+    <div class="card mb-4">
+      <div class="card-header">Démarrage de l'intervention</div>
+      <div class="card-body">
+        <form method="post" action="/interventions/{{ intervention.id }}/start">
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label" for="int-start">Heure de début</label>
+              <input class="form-control" id="int-start" name="started_at" type="datetime-local">
+              <div class="form-text">Laisser vide pour enregistrer l'heure actuelle.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-start-notes">Observations de démarrage</label>
+              <textarea class="form-control" id="int-start-notes" name="notes" rows="2"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-info mt-3" type="submit">Démarrer l'intervention</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if can_intervene and intervention.status == 'in_progress' %}
+    <div class="card mb-4">
+      <div class="card-header">Clôture de l'intervention</div>
+      <div class="card-body">
+        <form method="post" action="/interventions/{{ intervention.id }}/finish">
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label" for="int-end">Heure de fin</label>
+              <input class="form-control" id="int-end" name="ended_at" type="datetime-local">
+              <div class="form-text">Laisser vide pour enregistrer l'heure actuelle.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-work-done">Compte rendu de maintenance *</label>
+              <textarea class="form-control" id="int-work-done" name="work_done" rows="4" required
+                        minlength="3" placeholder="Opérations réalisées, pièces remplacées, essais de remise en service…"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-end-notes">Observations complémentaires</label>
+              <textarea class="form-control" id="int-end-notes" name="notes" rows="2"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-success mt-3" type="submit">Terminer l'intervention</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not closed and current_user and (can_manage or intervention.created_by_id == current_user.id) %}
+    <div class="card border-danger-subtle">
+      <div class="card-header text-danger">Annulation</div>
+      <div class="card-body">
+        <form method="post" action="/interventions/{{ intervention.id }}/cancel"
+              onsubmit="return confirm('Annuler définitivement cette demande ?');">
+          <label class="form-label" for="int-cancel-reason">Motif</label>
+          <input class="form-control" id="int-cancel-reason" name="reason" placeholder="Doublon, panne résolue d'elle-même…">
+          <button class="btn btn-outline-danger mt-3" type="submit" {% if intervention.intervention_parts|selectattr('status', 'equalto', 'used')|list %}disabled{% endif %}>
+            Annuler la demande
+          </button>
+          {% if intervention.intervention_parts|selectattr('status', 'equalto', 'used')|list %}
+          <div class="form-text text-danger">Des pièces ont déjà été consommées : l'annulation est impossible.</div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Pièces de rechange de l'intervention</span>
+        <span class="badge text-bg-secondary">{{ parts|length }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Pièce</th>
+              <th class="text-end">Demandée</th>
+              <th class="text-end">Utilisée</th>
+              <th>Statut</th>
+              <th>Demandée par</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in parts %}
+            <tr>
+              <td>
+                <span class="fw-semibold">{{ item.spare_part_code }}</span>
+                <div class="small text-muted">{{ item.spare_part_name }}</div>
+                {% if item.notes %}<div class="small text-muted">{{ item.notes }}</div>{% endif %}
+              </td>
+              <td class="text-end">{{ item.requested_quantity|qty }} {{ item.unit or '' }}</td>
+              <td class="text-end">
+                {% if item.used_quantity is not none %}{{ item.used_quantity|qty }} {{ item.unit or '' }}{% else %}—{% endif %}
+              </td>
+              <td><span class="badge {{ item.status_css }}">{{ item.status_label }}</span></td>
+              <td>
+                {{ item.requested_by_name or '—' }}
+                {% if item.used_by_name %}<div class="small text-muted">Utilisée par {{ item.used_by_name }}</div>{% endif %}
+              </td>
+              <td class="text-end">
+                {% if item.is_pending and can_intervene and intervention.status == 'in_progress' %}
+                <form class="d-inline-flex gap-1 justify-content-end align-items-center"
+                      method="post" action="/interventions/{{ intervention.id }}/parts/{{ item.id }}/use">
+                  <input class="form-control form-control-sm" style="width: 90px;" name="quantity"
+                         inputmode="decimal" value="{{ item.requested_quantity }}" aria-label="Quantité utilisée">
+                  <button class="btn btn-sm btn-success">Utiliser</button>
+                </form>
+                {% endif %}
+                {% if item.is_pending and can_intervene and not closed %}
+                <form class="d-inline" method="post" action="/interventions/{{ intervention.id }}/parts/{{ item.id }}/cancel">
+                  <button class="btn btn-sm btn-outline-secondary">Annuler</button>
+                </form>
+                {% endif %}
+                {% if not item.is_pending %}—{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Aucune pièce demandée pour cette intervention.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer small text-muted">
+        La sortie de stock n'est créée qu'au moment de l'utilisation de la pièce.
+        Une pièce demandée peut encore être annulée ; une pièce utilisée reste
+        définitivement tracée dans l'historique du stock.
+      </div>
+    </div>
+
+    {% if can_intervene and not closed %}
+    <div class="card">
+      <div class="card-header">Demander une pièce de rechange</div>
+      <div class="card-body">
+        {% if spare_parts %}
+        <form method="post" action="/interventions/{{ intervention.id }}/parts">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label" for="int-part">Pièce *</label>
+              <select class="form-select" id="int-part" name="spare_part_id" required>
+                <option value="">— sélectionner une pièce —</option>
+                {% for spare_part in spare_parts %}
+                <option value="{{ spare_part.id }}">
+                  {{ spare_part.code }} — {{ spare_part.name }}
+                  (stock : {{ spare_part.quantity|qty }} {{ spare_part.unit }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="int-part-qty">Quantité *</label>
+              <input class="form-control" id="int-part-qty" name="quantity" inputmode="decimal" value="1" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="int-part-notes">Justification / observation</label>
+              <input class="form-control" id="int-part-notes" name="notes">
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit">Demander la pièce</button>
+        </form>
+        {% else %}
+        <p class="mb-0 text-muted">
+          Aucune pièce de rechange active n'est disponible dans le catalogue.
+          <a href="/spare-parts/new">Créer une pièce</a>.
+        </p>
+        {% endif %}
+      </div>
+      <div class="card-footer small text-muted">
+        La demande est possible dès l'affectation. La consommation, elle, n'est
+        autorisée que lorsque l'intervention est en cours.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

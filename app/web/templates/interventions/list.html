@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap align-items-center">
+  <a class="btn btn-outline-secondary" href="/interventions?mine=1">Mes interventions</a>
+  <a class="btn btn-outline-secondary" href="/interventions">Toutes les demandes</a>
+  <a class="btn btn-primary" href="/interventions/new">Nouvelle demande</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Toutes</div>
+      <div class="fs-3 fw-bold">{{ summary.total }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">Non affectées</div>
+      <div class="fs-3 fw-bold text-danger">{{ summary.unassigned }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Affectées</div>
+      <div class="fs-3 fw-bold text-warning">{{ summary.assigned }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">En cours</div>
+      <div class="fs-3 fw-bold text-info">{{ summary.in_progress }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Terminées</div>
+      <div class="fs-3 fw-bold text-success">{{ summary.done }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Annulées</div>
+      <div class="fs-3 fw-bold text-secondary">{{ summary.cancelled }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Filtres</div>
+  <div class="card-body">
+    <form method="get" action="/interventions" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="int-status">Statut</label>
+        <select class="form-select" id="int-status" name="status">
+          <option value="">Tous</option>
+          {% for s in statuses %}
+          <option value="{{ s.value }}" {% if filters.status == s.value %}selected{% endif %}>{{ s.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="int-assigned">Technicien affecté</label>
+        <select class="form-select" id="int-assigned" name="assigned_to_id">
+          <option value="">Tous</option>
+          {% for tech in technicians %}
+          <option value="{{ tech.id }}" {% if filters.assigned_to_id == tech.id %}selected{% endif %}>{{ tech.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="int-search">Recherche</label>
+        <input class="form-control" id="int-search" name="search" value="{{ filters.search or '' }}"
+               placeholder="Code OT, équipement, panne…">
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary" href="/interventions">Réinitialiser</a>
+      </div>
+      {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    Demandes d'intervention corrective
+    {% if mine %}<span class="badge text-bg-info ms-1">mes affectations</span>{% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>OT</th>
+          <th>Équipement</th>
+          <th>Panne / symptôme</th>
+          <th>Demandeur</th>
+          <th>Priorité</th>
+          <th>Statut</th>
+          <th>Affecté à</th>
+          <th>Durée</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in interventions %}
+        <tr>
+          <td class="fw-semibold text-nowrap">{{ item.code }}</td>
+          <td>
+            <a href="/equipments/{{ item.equipment_id }}">{{ item.equipment_code }}</a>
+            <div class="small text-muted">{{ item.equipment_name }}</div>
+          </td>
+          <td>
+            <div class="text-truncate" style="max-width: 320px;">{{ item.description or '—' }}</div>
+            {% if item.due_date %}
+            <div class="small text-muted">Souhaitée le {{ item.due_date.strftime('%d/%m/%Y') }}</div>
+            {% endif %}
+          </td>
+          <td>{{ item.created_by_name or '—' }}</td>
+          <td>{{ item.priority_label }}</td>
+          <td><span class="badge {{ item.status_css }}">{{ item.status_label }}</span></td>
+          <td>{{ item.assigned_to_name or 'Non affecté' }}</td>
+          <td class="text-nowrap">{{ item.intervention_duration_label or '—' }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="/interventions/{{ item.id }}">Ouvrir</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-4">
+            Aucune demande d'intervention à afficher.
+            <a href="/interventions/new">Créer une demande</a>.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
