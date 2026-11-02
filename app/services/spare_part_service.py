@@ -223,6 +223,7 @@ class SparePartService:
             quantity_delta=delta,
             resulting_quantity=resulting,
             movement_date=movement_date,
+            unit_cost=part.unit_cost,
             reference=payload.reference,
             notes=payload.notes,
             work_order_id=payload.work_order_id,

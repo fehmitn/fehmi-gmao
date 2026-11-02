@@ -120,6 +120,7 @@ class StockMovement(IdMixin, Base):
     quantity_delta: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     resulting_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     movement_date: Mapped[date] = mapped_column(Date, default=_today, index=True)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     work_order_id: Mapped[int | None] = mapped_column(
@@ -155,6 +156,13 @@ class StockMovement(IdMixin, Base):
     @property
     def work_order_code(self) -> str | None:
         return self.work_order.code if self.work_order else None
+
+    @property
+    def total_cost(self) -> Decimal | None:
+        """Coût du mouvement, figé au prix unitaire de l'époque."""
+        if self.unit_cost is None:
+            return None
+        return (self.quantity or Decimal("0")) * self.unit_cost
 
     def __str__(self) -> str:
         return f"{self.spare_part_id} {self.movement_type} {self.quantity}"
