@@ -260,6 +260,20 @@ Les pièces actives dont le stock atteint le seuil minimum sont signalées dans
 le tableau de bord. Une pièce qui possède un historique ne peut pas être
 supprimée : on la désactive pour la retirer des alertes de réapprovisionnement.
 
+**Pièces compatibles.** La fiche d'une pièce permet de déclarer qu'elle peut
+**remplacer** une autre pièce (même unité obligatoire, relation enregistrée
+dans `spare_part_interchanges`). La relation est volontairement **orientée** :
+« A remplace B » n'implique pas « B remplace A ». Les prix des deux pièces sont
+affichés côte à côte, avec un badge « moins chère » ou « plus chère » ; une
+pièce plus chère reste autorisée, l'avertissement est purement indicatif.
+
+Au moment de consommer une pièce demandée, le technicien voit la pièce
+d'origine puis, en dessous, les pièces compatibles en stock, chacune avec son
+prix. Il peut ainsi choisir délibérément une pièce moins chère même si le stock
+de la pièce d'origine suffit. La sortie de stock est alors enregistrée sur la
+pièce réellement consommée, et `intervention_parts.used_spare_part_id` conserve
+la traçabilité de la substitution.
+
 ### 6.2 Équipements de maintenance
 
 Le module **Inventaire → Équipements de maintenance** couvre les outils et
@@ -300,6 +314,11 @@ La migration `0005_inventory_tools` crée les tables `spare_parts`,
 avec leurs index et contraintes de clés étrangères. Elle ajoute également
 l'index manquant `ix_work_orders_created_by_id` déjà déclaré dans le modèle.
 
+La migration `0009_spare_part_interchanges` crée la table
+`spare_part_interchanges` (contrainte d'unicité sur le couple
+`part_id`/`replaces_id`) et ajoute `intervention_parts.used_spare_part_id`
+pour mémoriser la pièce réellement consommée.
+
 ---
 
 ## 7. Maintenance corrective
@@ -335,6 +354,13 @@ Une pièce suit deux temps :
 2. **Utilisation** (`used`) : la quantité réellement consommée est enregistrée.
    Une **sortie de stock append-only** est alors créée et rattachée à l'OT,
    avec contrôle du stock disponible.
+
+Lors de l'utilisation, le formulaire présente la pièce demandée puis les pièces
+compatibles, avec leur stock et leur prix. Choisir une pièce compatible
+enregistre la sortie sur cette pièce (contrôle de compatibilité, d'activité et
+de stock) et renseigne `used_spare_part_id` ; la note du mouvement rappelle la
+pièce initialement demandée. Si le prix de la pièce choisie est supérieur, un
+badge « plus chère » le signale sans bloquer l'opération.
 
 Une demande encore en attente peut être annulée (`cancelled`). Une pièce déjà
 utilisée reste définitivement tracée dans l'historique du stock : l'annulation
@@ -435,6 +461,10 @@ pièce. Les mouvements suivants capturent la valeur au moment de la saisie.
 | `DELETE` | `/api/spare-parts/{id}` | Supprimer (refusé si des mouvements existent) |
 | `GET` | `/api/spare-parts/{id}/movements` | Historique des mouvements |
 | `POST` | `/api/spare-parts/{id}/movements` | Enregistrer une entrée, une sortie ou un inventaire |
+| `GET` | `/api/spare-parts/{id}/interchanges` | Compatibilités entrantes et sortantes de la pièce |
+| `POST` | `/api/spare-parts/{id}/interchanges` | Déclarer que cette pièce remplace une autre |
+| `DELETE` | `/api/spare-parts/{id}/interchanges/{interchange_id}` | Retirer une compatibilité |
+| `GET` | `/api/spare-parts/{id}/replacement-candidates` | Pièces actives pouvant remplacer celle-ci |
 | `GET` | `/api/maintenance-tools` | Fiches filtrables (`search`, `category`, `status_filter`, `calibration_status`, `active_only`) |
 | `GET` | `/api/maintenance-tools/summary` | Indicateurs d'étalonnage et de disponibilité |
 | `POST` | `/api/maintenance-tools` | Créer une fiche d'utilisation |
@@ -456,7 +486,7 @@ pièce. Les mouvements suivants capturent la valeur au moment de la saisie.
 | `POST` | `/api/interventions/{id}/cancel` | Annuler une demande non consommée |
 | `GET` | `/api/interventions/{id}/parts` | Pièces demandées / utilisées |
 | `POST` | `/api/interventions/{id}/parts` | Demander une pièce de rechange |
-| `POST` | `/api/interventions/{id}/parts/{part_id}/use` | Consommer la pièce (sortie de stock) |
+| `POST` | `/api/interventions/{id}/parts/{part_id}/use` | Consommer la pièce (sortie de stock ; `replacement_part_id` pour une pièce compatible) |
 | `POST` | `/api/interventions/{id}/parts/{part_id}/cancel` | Annuler une demande de pièce en attente |
 | `GET` | `/api/analytics/kpis` | MTBF, MTTR, disponibilité et coûts par équipement (`days`, `site_id`) |
 | `GET` | `/api/analytics/costs` | Détail des coûts de pièces par ordre de travail |
@@ -484,10 +514,11 @@ gmao-app/
 │       ├── 0005_inventory_tools.py
 │       ├── 0006_corrective_maintenance.py
 │       ├── 0007_work_order_timestamps.py
-│       └── 0008_movement_costs.py
+│       ├── 0008_movement_costs.py
+│       └── 0009_spare_part_interchanges.py
 ├── app/
 │   ├── api/                  routes REST JSON (/api)
-│   ├── models/               modèles SQLAlchemy (18 tables)
+│   ├── models/               modèles SQLAlchemy (19 tables)
 │   ├── repositories/         accès aux données (CTE récursive, pagination)
 │   ├── schemas/              contrats Pydantic (entrées / sorties)
 │   ├── services/             règles métier (backdating, périodicité, stock, étalonnage, corrective, analyse)
@@ -502,7 +533,7 @@ gmao-app/
 │   └── entrypoint.sh         migrations + seed optionnel + uvicorn
 ├── scripts/seed.py           jeu de démonstration
 ├── scripts/backup.py         sauvegarde à chaud de la base SQLite
-├── tests/                    156 tests pytest
+├── tests/                    172 tests pytest
 ├── Dockerfile                image de production (un seul conteneur)
 ├── docker-compose.yml        service unique + volume de données
 └── requirements.txt          dépendances de production
@@ -558,6 +589,7 @@ figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
 | `tests/test_inventory.py` | mouvements de stock append-only, seuils, suppression protégée, étalonnages calendaires, blocage des prêts, API et formulaires web |
 | `tests/test_corrective_maintenance.py` | demande par tout utilisateur, affectation par le responsable, saisie des horaires et du compte rendu, pièces demandées puis consommées, stock insuffisant, annulation, API et pages web |
 | `tests/test_analytics.py` | MTBF/MTTR/disponibilité, coût figé et repli sur le prix courant, pannes récurrentes, alertes, API et page d'analyse |
+| `tests/test_spare_interchange.py` | compatibilités orientées, unités différentes, prix indicatif, candidats actifs, substitution à la consommation, API et pages web |
 
 ---
 
@@ -694,3 +726,9 @@ docker compose down -v   # supprime AUSSI la base : à manier avec prudence
   équipement, coût des pièces figé au moment du mouvement, détection des pannes
   récurrentes, page `/analytics`, API dédiée et alertes d'exploitation sur le
   tableau de bord (migration `0008_movement_costs`).
+- **v0.6** — pièces de rechange compatibles : relation orientée « A remplace B »
+  (migration `0009_spare_part_interchanges`), comparaison de prix indicative
+  (badges « moins chère » / « plus chère »), unité identique obligatoire, choix
+  délibéré d'une pièce moins chère au moment de la consommation, traçabilité de
+  la pièce réellement consommée (`intervention_parts.used_spare_part_id`) et
+  sortie de stock enregistrée sur la pièce substituée.

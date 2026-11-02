@@ -201,6 +201,9 @@
               <td>
                 <span class="fw-semibold">{{ item.spare_part_code }}</span>
                 <div class="small text-muted">{{ item.spare_part_name }}</div>
+                {% if item.is_substituted %}
+                <div class="small text-info">Consommée : {{ item.used_part_code }} — {{ item.used_part_name }}</div>
+                {% endif %}
                 {% if item.notes %}<div class="small text-muted">{{ item.notes }}</div>{% endif %}
               </td>
               <td class="text-end">{{ item.requested_quantity|qty }} {{ item.unit or '' }}</td>
@@ -214,11 +217,46 @@
               </td>
               <td class="text-end">
                 {% if item.is_pending and can_intervene and intervention.status == 'in_progress' %}
-                <form class="d-inline-flex gap-1 justify-content-end align-items-center"
+                <form class="text-start" style="min-width: 330px;"
                       method="post" action="/interventions/{{ intervention.id }}/parts/{{ item.id }}/use">
-                  <input class="form-control form-control-sm" style="width: 90px;" name="quantity"
-                         inputmode="decimal" value="{{ item.requested_quantity }}" aria-label="Quantité utilisée">
-                  <button class="btn btn-sm btn-success">Utiliser</button>
+                  <div class="border rounded p-2 mb-2" style="max-height: 190px; overflow-y: auto;">
+                    <div class="small text-muted mb-1">Pièce à consommer</div>
+                    <label class="d-flex justify-content-between align-items-center gap-2 small border-bottom pb-1 mb-1">
+                      <span>
+                        <input type="radio" name="replacement_part_id" value="{{ item.spare_part_id }}" checked>
+                        <strong>{{ item.spare_part_code }}</strong> — {{ item.spare_part_name }}
+                        <span class="text-muted">({{ item.available_quantity|qty }} {{ item.unit or '' }} en stock)</span>
+                      </span>
+                      <span class="text-nowrap fw-semibold">
+                        {% if item.spare_part.unit_cost is not none %}{{ item.spare_part.unit_cost|money }} €{% else %}—{% endif %}
+                      </span>
+                    </label>
+                    {% if replacement_options.get(item.id, []) %}
+                    <div class="small text-muted mb-1">Pièces compatibles</div>
+                    {% for candidate in replacement_options.get(item.id, []) %}
+                    <label class="d-flex justify-content-between align-items-center gap-2 small border-bottom py-1">
+                      <span>
+                        <input type="radio" name="replacement_part_id" value="{{ candidate.id }}">
+                        <strong>{{ candidate.code }}</strong> — {{ candidate.name }}
+                        <span class="text-muted">({{ candidate.quantity|qty }} {{ candidate.unit }} en stock)</span>
+                      </span>
+                      <span class="text-nowrap">
+                        {% if candidate.unit_cost is not none %}{{ candidate.unit_cost|money }} €{% else %}—{% endif %}
+                        {% if item.spare_part.unit_cost is not none and candidate.unit_cost is not none and candidate.unit_cost < item.spare_part.unit_cost %}
+                        <span class="badge text-bg-success ms-1">moins chère</span>
+                        {% elif item.spare_part.unit_cost is not none and candidate.unit_cost is not none and candidate.unit_cost > item.spare_part.unit_cost %}
+                        <span class="badge text-bg-warning ms-1">plus chère</span>
+                        {% endif %}
+                      </span>
+                    </label>
+                    {% endfor %}
+                    {% endif %}
+                  </div>
+                  <div class="d-flex gap-1 justify-content-end align-items-center">
+                    <input class="form-control form-control-sm" style="width: 90px;" name="quantity"
+                           inputmode="decimal" value="{{ item.requested_quantity }}" aria-label="Quantité utilisée">
+                    <button class="btn btn-sm btn-success">Utiliser</button>
+                  </div>
                 </form>
                 {% endif %}
                 {% if item.is_pending and can_intervene and not closed %}

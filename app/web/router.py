@@ -724,6 +724,13 @@ def spare_part_detail_page(
             "movements": service.movements(spare_part_id),
             "movement_types": list(StockMovementType),
             "work_orders": WorkOrderService(db).list(open_only=True),
+            "interchanges": service.interchanges(part),
+            "replacements": service.replacements(part),
+            "available_parts": [
+                item
+                for item in service.list(active_only=True)
+                if item.id != part.id
+            ],
             "users": UserService(db).list_active(),
             "current_user": actor,
             "page_title": f"Pièce {part.code}",
@@ -807,6 +814,58 @@ def delete_spare_part(
     except DomainError as exc:
         return _redirect(f"/spare-parts/{spare_part_id}", err=exc.message)
     return _redirect("/spare-parts", msg="Pièce de rechange supprimée.")
+
+
+@router.post("/spare-parts/{spare_part_id}/interchanges")
+async def create_spare_part_interchange(
+    spare_part_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: User | None = Depends(get_current_user),
+) -> Response:
+    data = await ft.form_data(request)
+    try:
+        replaces_id = ft.as_int(data, "replaces_id")
+        if replaces_id is None:
+            raise DomainError("Sélectionnez la pièce à remplacer.")
+        service = SparePartService(db)
+        part = service.get(spare_part_id)
+        service.add_interchange(
+            part,
+            replaces_id,
+            note=ft.optional_text(data, "note"),
+            actor=actor,
+        )
+    except (DomainError, ValueError) as exc:
+        message = exc.message if isinstance(exc, DomainError) else str(exc)
+        return _redirect(f"/spare-parts/{spare_part_id}", err=message)
+    return _redirect(
+        f"/spare-parts/{spare_part_id}",
+        msg="Compatibilité enregistrée.",
+    )
+
+
+@router.post(
+    "/spare-parts/{spare_part_id}/interchanges/{interchange_id}/delete"
+)
+def delete_spare_part_interchange(
+    spare_part_id: int,
+    interchange_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: User | None = Depends(get_current_user),
+) -> Response:
+    try:
+        service = SparePartService(db)
+        service.remove_interchange(
+            service.get(spare_part_id), interchange_id, actor=actor
+        )
+    except DomainError as exc:
+        return _redirect(f"/spare-parts/{spare_part_id}", err=exc.message)
+    return _redirect(
+        f"/spare-parts/{spare_part_id}",
+        msg="Compatibilité supprimée.",
+    )
 
 
 # ---------------------------------------------- équipements de maintenance
@@ -2057,11 +2116,18 @@ def _intervention_detail_context(
     can_intervene = actor is not None and (
         can_manage or work_order.assigned_to_id == actor.id
     )
+    stock_service = SparePartService(db)
+    parts = InterventionService(db).parts(work_order.id)
+    replacement_options = {
+        item.id: stock_service.replacement_candidates(item.spare_part)
+        for item in parts
+    }
     return {
         "intervention": work_order,
-        "parts": InterventionService(db).parts(work_order.id),
+        "parts": parts,
+        "replacement_options": replacement_options,
         "parts_cost": AnalyticsService(db).parts_cost(work_order.id),
-        "spare_parts": SparePartService(db).list(active_only=True),
+        "spare_parts": stock_service.list(active_only=True),
         "technicians": _intervention_technicians(db),
         "can_manage": can_manage,
         "can_intervene": can_intervene,
@@ -2315,6 +2381,7 @@ async def use_intervention_part(
             service.get_part(work_order, part_id),
             InterventionPartUse(
                 quantity=ft.as_decimal(data, "quantity"),
+                replacement_part_id=ft.as_int(data, "replacement_part_id"),
                 notes=ft.optional_text(data, "notes"),
             ),
             actor=actor,

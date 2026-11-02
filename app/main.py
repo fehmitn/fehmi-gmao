@@ -53,7 +53,7 @@ app = FastAPI(
         "La saisie d'opérations datées dans le passé est autorisée, mais encadrée : "
         "motif de dérogation obligatoire, retard mesuré, journalisation."
     ),
-    version="0.5.0",
+    version="0.6.0",
     lifespan=lifespan,
 )
 

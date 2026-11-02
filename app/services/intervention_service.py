@@ -404,15 +404,38 @@ class InterventionService:
                 "La quantité utilisée ne peut pas dépasser la quantité demandée."
             )
 
+        consumed_part = item.spare_part
+        if payload.replacement_part_id not in (None, 0, item.spare_part_id):
+            candidate = self.db.get(SparePart, payload.replacement_part_id)
+            if candidate is None:
+                raise NotFoundError(
+                    f"Pièce de rechange {payload.replacement_part_id} introuvable."
+                )
+            if not candidate.is_active:
+                raise ValidationError(
+                    f"La pièce '{candidate.code}' est inactive : elle ne peut pas "
+                    "être consommée."
+                )
+            if not self.stock_service.is_compatible_replacement(
+                candidate, item.spare_part
+            ):
+                raise ValidationError(
+                    f"La pièce '{candidate.code}' n'est pas déclarée compatible "
+                    f"avec '{item.spare_part_code}'."
+                )
+            consumed_part = candidate
+
+        substituted = consumed_part.id != item.spare_part_id
+        note = f"Pièce demandée : {item.spare_part_code} ({work_order.code})"
+        if substituted:
+            note += f" — remplacée par {consumed_part.code}"
         movement = self.stock_service.record_movement(
-            item.spare_part,
+            consumed_part,
             StockMovementCreate(
                 movement_type=StockMovementType.EXIT,
                 quantity=quantity,
                 reference=f"Intervention {work_order.code}",
-                notes=_append_notes(
-                    f"Pièce demandée pour {work_order.code}", payload.notes
-                ),
+                notes=_append_notes(note, payload.notes),
                 work_order_id=work_order.id,
             ),
             actor=actor,
@@ -420,6 +443,7 @@ class InterventionService:
         item.used_quantity = quantity
         item.used_at = now()
         item.used_by_id = actor.id
+        item.used_spare_part_id = consumed_part.id
         item.status = InterventionPartStatus.USED.value
         item = self.part_repository.save(item)
         self.audit.record(
@@ -429,7 +453,8 @@ class InterventionService:
             actor=actor,
             payload={
                 "work_order": work_order.code,
-                "spare_part": item.spare_part_code or "",
+                "requested_spare_part": item.spare_part_code or "",
+                "consumed_spare_part": consumed_part.code,
                 "quantity": str(quantity),
                 "stock_movement_id": str(movement.id),
             },

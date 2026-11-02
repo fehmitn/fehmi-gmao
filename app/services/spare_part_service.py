@@ -11,6 +11,7 @@ from app.models.enums import AuditAction, StockMovementType
 from app.models.maintenance_supplier import MaintenanceSupplier
 from app.models.site import Site
 from app.models.spare_part import SparePart, StockMovement
+from app.models.spare_part_interchange import SparePartInterchange
 from app.models.user import User
 from app.models.work_order import WorkOrder
 from app.repositories.spare_part import SparePartRepository
@@ -69,6 +70,107 @@ class SparePartService:
             "out_of_stock": self.repository.out_of_stock_count(),
             "stock_value": self.repository.total_value(),
         }
+
+    # -------------------------------------------------------------- compatibilités
+    def interchanges(self, part: SparePart) -> list[SparePartInterchange]:
+        """Pièces que celle-ci peut remplacer."""
+        return self.repository.list_interchanges(part.id)
+
+    def replacements(self, part: SparePart) -> list[SparePartInterchange]:
+        """Pièces qui peuvent remplacer celle-ci."""
+        return self.repository.list_replacements(part.id)
+
+    def replacement_candidates(self, part: SparePart) -> list[SparePart]:
+        """Pièces actives autorisées à remplacer ``part`` au moment de l'usage."""
+        candidates = []
+        for interchange in self.repository.list_replacements(part.id):
+            candidate = interchange.part
+            if candidate is None or not candidate.is_active:
+                continue
+            if candidate.id == part.id:
+                continue
+            candidates.append(candidate)
+        candidates.sort(key=lambda item: item.code)
+        return candidates
+
+    def add_interchange(
+        self,
+        part: SparePart,
+        replaces_id: int,
+        *,
+        note: str | None = None,
+        actor: User | None = None,
+    ) -> SparePartInterchange:
+        replaces = self.repository.get(replaces_id)
+        if replaces is None:
+            raise NotFoundError(f"Pièce de rechange {replaces_id} introuvable.")
+        if replaces.id == part.id:
+            raise ValidationError("Une pièce ne peut pas se remplacer elle-même.")
+        if replaces.unit.strip().casefold() != part.unit.strip().casefold():
+            raise ValidationError(
+                "La pièce de remplacement et la pièce remplacée doivent avoir "
+                f"la même unité ({part.unit} ≠ {replaces.unit})."
+            )
+        if self.repository.find_interchange(part.id, replaces.id) is not None:
+            raise ConflictError(
+                f"La compatibilité '{part.code} remplace {replaces.code}' existe déjà."
+            )
+
+        interchange = SparePartInterchange(
+            part_id=part.id,
+            replaces_id=replaces.id,
+            note=note,
+        )
+        interchange = self.repository.add_interchange(interchange)
+        self.audit.record(
+            AuditAction.CREATE,
+            "spare_part_interchange",
+            interchange.id,
+            actor=actor,
+            payload={
+                "part": part.code,
+                "replaces": replaces.code,
+                "note": note or "",
+            },
+        )
+        return interchange
+
+    def remove_interchange(
+        self,
+        part: SparePart,
+        interchange_id: int,
+        actor: User | None = None,
+    ) -> None:
+        interchange = self.repository.get_interchange(interchange_id)
+        if interchange is None or part.id not in (
+            interchange.part_id,
+            interchange.replaces_id,
+        ):
+            raise NotFoundError(
+                f"Compatibilité {interchange_id} introuvable pour '{part.code}'."
+            )
+        payload = {
+            "part": interchange.part_code,
+            "replaces": interchange.replaces_code,
+        }
+        self.repository.delete_interchange(interchange)
+        self.audit.record(
+            AuditAction.DELETE,
+            "spare_part_interchange",
+            interchange_id,
+            actor=actor,
+            payload=payload,
+        )
+
+    def is_compatible_replacement(
+        self, candidate: SparePart, requested: SparePart
+    ) -> bool:
+        """True si ``candidate`` peut remplacer ``requested``."""
+        if candidate.id == requested.id:
+            return True
+        return (
+            self.repository.find_interchange(candidate.id, requested.id) is not None
+        )
 
     # ----------------------------------------------------------------- écriture
     def create(

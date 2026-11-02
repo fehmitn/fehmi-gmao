@@ -71,6 +71,93 @@
     </div>
 
     <div class="card mb-4">
+      <div class="card-header">Pièces compatibles</div>
+      <div class="card-body">
+        <div class="small text-muted mb-2">
+          La compatibilité est orientée : « A remplace B » n'entraîne pas
+          automatiquement « B remplace A ». L'unité doit être identique.
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <strong>Cette pièce peut remplacer</strong>
+          <span class="badge text-bg-secondary">{{ interchanges|length }}</span>
+        </div>
+        <ul class="list-group list-group-flush mb-3">
+          {% for link in interchanges %}
+          <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <a class="fw-semibold" href="/spare-parts/{{ link.replaces_id }}">{{ link.replaces.code }}</a>
+              — {{ link.replaces.name }}
+              <div class="small text-muted">
+                Coût : {{ link.part.unit_cost|money }} €
+                · pièce remplacée : {{ link.replaces.unit_cost|money }} €
+                {% if link.part.unit_cost is not none and link.replaces.unit_cost is not none and link.part.unit_cost > link.replaces.unit_cost %}
+                <span class="badge text-bg-warning">plus chère</span>
+                {% elif link.is_cheaper %}
+                <span class="badge text-bg-success">moins chère</span>
+                {% endif %}
+              </div>
+              {% if link.note %}<div class="small">{{ link.note }}</div>{% endif %}
+            </div>
+            <form method="post" action="/spare-parts/{{ part.id }}/interchanges/{{ link.id }}/delete">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Retirer</button>
+            </form>
+          </li>
+          {% else %}
+          <li class="list-group-item px-0 small text-muted">Aucune pièce remplacée par celle-ci.</li>
+          {% endfor %}
+        </ul>
+
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <strong>Pièces qui peuvent remplacer celle-ci</strong>
+          <span class="badge text-bg-secondary">{{ replacements|length }}</span>
+        </div>
+        <ul class="list-group list-group-flush mb-3">
+          {% for link in replacements %}
+          <li class="list-group-item px-0">
+            <a class="fw-semibold" href="/spare-parts/{{ link.part_id }}">{{ link.part.code }}</a>
+            — {{ link.part.name }}
+            <div class="small text-muted">
+              Coût : {{ link.part.unit_cost|money }} €
+              · pièce d'origine : {{ link.replaces.unit_cost|money }} €
+              {% if link.part.unit_cost is not none and link.replaces.unit_cost is not none and link.part.unit_cost < link.replaces.unit_cost %}
+              <span class="badge text-bg-success">moins chère</span>
+              {% elif link.part.unit_cost is not none and link.replaces.unit_cost is not none and link.part.unit_cost > link.replaces.unit_cost %}
+              <span class="badge text-bg-warning">plus chère</span>
+              {% endif %}
+            </div>
+            <div class="small">Stock : {{ link.part.quantity|qty }} {{ link.part.unit }}</div>
+          </li>
+          {% else %}
+          <li class="list-group-item px-0 small text-muted">Aucune pièce compatible enregistrée.</li>
+          {% endfor %}
+        </ul>
+
+        <form method="post" action="/spare-parts/{{ part.id }}/interchanges" class="row g-2 align-items-end">
+          <div class="col-12">
+            <label class="form-label" for="compat-part">Cette pièce peut remplacer…</label>
+            <select class="form-select" id="compat-part" name="replaces_id" required>
+              <option value="">— choisir une pièce —</option>
+              {% for item in available_parts %}
+              <option value="{{ item.id }}">
+                {{ item.code }} — {{ item.name }}
+                ({{ item.unit_cost|money }} €, stock {{ item.quantity|qty }} {{ item.unit }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="compat-note">Note (facultatif)</label>
+            <input class="form-control" id="compat-note" name="note" placeholder="Référence constructeur, raison du remplacement…">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-outline-primary" type="submit">Ajouter la compatibilité</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-4">
       <div class="card-header">Enregistrer un mouvement de stock</div>
       <div class="card-body">
         <form method="post" action="/spare-parts/{{ part.id }}/movements">

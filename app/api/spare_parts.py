@@ -10,6 +10,9 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.spare_part import (
     SparePartCreate,
+    SparePartInterchangeCreate,
+    SparePartInterchangeRead,
+    SparePartInterchangesRead,
     SparePartRead,
     SparePartUpdate,
     StockMovementCreate,
@@ -114,3 +117,75 @@ def create_movement(
     return StockMovementRead.model_validate(
         service.record_movement(part, payload, actor=actor)
     )
+
+
+@router.get(
+    "/{spare_part_id}/interchanges", response_model=SparePartInterchangesRead
+)
+def list_interchanges(
+    spare_part_id: int, db: Session = Depends(get_db)
+) -> SparePartInterchangesRead:
+    service = SparePartService(db)
+    part = service.get(spare_part_id)
+    return SparePartInterchangesRead(
+        can_replace=[
+            SparePartInterchangeRead.model_validate(item)
+            for item in service.interchanges(part)
+        ],
+        can_be_replaced_by=[
+            SparePartInterchangeRead.model_validate(item)
+            for item in service.replacements(part)
+        ],
+    )
+
+
+@router.get(
+    "/{spare_part_id}/replacement-candidates",
+    response_model=list[SparePartRead],
+)
+def list_replacement_candidates(
+    spare_part_id: int, db: Session = Depends(get_db)
+) -> list[SparePartRead]:
+    service = SparePartService(db)
+    return [
+        SparePartRead.model_validate(item)
+        for item in service.replacement_candidates(service.get(spare_part_id))
+    ]
+
+
+@router.post(
+    "/{spare_part_id}/interchanges",
+    response_model=SparePartInterchangeRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_interchange(
+    spare_part_id: int,
+    payload: SparePartInterchangeCreate,
+    db: Session = Depends(get_db),
+    actor: User | None = Depends(get_current_user),
+) -> SparePartInterchangeRead:
+    service = SparePartService(db)
+    interchange = service.add_interchange(
+        service.get(spare_part_id),
+        payload.replaces_id,
+        note=payload.note,
+        actor=actor,
+    )
+    return SparePartInterchangeRead.model_validate(interchange)
+
+
+@router.delete(
+    "/{spare_part_id}/interchanges/{interchange_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_interchange(
+    spare_part_id: int,
+    interchange_id: int,
+    db: Session = Depends(get_db),
+    actor: User | None = Depends(get_current_user),
+) -> Response:
+    service = SparePartService(db)
+    service.remove_interchange(
+        service.get(spare_part_id), interchange_id, actor=actor
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
