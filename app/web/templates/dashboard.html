@@ -39,6 +39,150 @@
   </div>
 </div>
 
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">Maintenances en retard</div>
+      <div class="fs-3 fw-bold text-danger">{{ schedule.overdue_count }}</div>
+      <a class="small" href="/maintenance-schedule">Ouvrir l'échéancier</a>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Échéances ≤ 30 jours</div>
+      <div class="fs-3 fw-bold text-warning">{{ schedule.due_soon_count }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Réalisations en retard</div>
+      <div class="fs-3 fw-bold">{{ schedule.late_execution_count }}</div>
+      <div class="small text-muted">retard vs échéance théorique</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Ancrages indisponibles</div>
+      <div class="fs-3 fw-bold">{{ schedule.no_anchor_count }}</div>
+      <div class="small text-muted">échéance non calculable</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">Interventions non affectées</div>
+      <div class="fs-3 fw-bold text-danger">{{ intervention_summary.unassigned }}</div>
+      <a class="small" href="/interventions?status=open">Affecter un technicien</a>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Interventions affectées</div>
+      <div class="fs-3 fw-bold text-warning">{{ intervention_summary.assigned }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Interventions en cours</div>
+      <div class="fs-3 fw-bold text-info">{{ intervention_summary.in_progress }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Interventions terminées</div>
+      <div class="fs-3 fw-bold text-success">{{ intervention_summary.done }}</div>
+      <a class="small" href="/interventions">Ouvrir la maintenance corrective</a>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Alertes stock — pièces de rechange</span>
+        <a class="small" href="/spare-parts">Ouvrir le catalogue</a>
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-4">
+          <div>
+            <div class="text-muted small">Sous le seuil</div>
+            <div class="fs-3 fw-bold text-warning">{{ stock_summary.low_stock }}</div>
+          </div>
+          <div>
+            <div class="text-muted small">En rupture</div>
+            <div class="fs-3 fw-bold text-danger">{{ stock_summary.out_of_stock }}</div>
+          </div>
+          <div>
+            <div class="text-muted small">Valeur du stock</div>
+            <div class="fs-3 fw-bold">{{ stock_summary.stock_value|money }} €</div>
+          </div>
+        </div>
+        {% if stock_summary.low_stock %}
+        <a class="btn btn-sm btn-outline-warning mt-3" href="/spare-parts?low_stock=1">Voir les pièces à réapprovisionner</a>
+        {% else %}
+        <p class="small text-muted mb-0 mt-3">Aucune alerte de stock.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Étalonnages — équipements de maintenance</span>
+        <a class="small" href="/maintenance-tools">Ouvrir les fiches</a>
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-4">
+          <div>
+            <div class="text-muted small">En retard</div>
+            <div class="fs-3 fw-bold text-danger">{{ tool_summary.overdue }}</div>
+          </div>
+          <div>
+            <div class="text-muted small">À prévoir ≤ 30 j</div>
+            <div class="fs-3 fw-bold text-warning">{{ tool_summary.due_soon }}</div>
+          </div>
+          <div>
+            <div class="text-muted small">Jamais étalonnés</div>
+            <div class="fs-3 fw-bold">{{ tool_summary.missing }}</div>
+          </div>
+        </div>
+        {% if tool_summary.overdue or tool_summary.due_soon or tool_summary.missing %}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          {% if tool_summary.overdue %}
+          <a class="btn btn-sm btn-outline-danger" href="/maintenance-tools?calibration_status=overdue">Étalonnages en retard</a>
+          {% endif %}
+          {% if tool_summary.due_soon %}
+          <a class="btn btn-sm btn-outline-warning" href="/maintenance-tools?calibration_status=due_soon">À prévoir sous 30 j</a>
+          {% endif %}
+          {% if tool_summary.missing %}
+          <a class="btn btn-sm btn-outline-secondary" href="/maintenance-tools?calibration_status=missing">Jamais étalonnés</a>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="small text-muted mb-0 mt-3">Aucune contrainte d'étalonnage en défaut.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if schedule.hours_based_count %}
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+  <div>
+    <strong>{{ schedule.hours_based_count }}</strong> opération(s) périodiques sont pilotées par
+    les <strong>heures de fonctionnement</strong>. Elles restent ouvertes tant que le compteur
+    n'a pas atteint le seuil.
+    {% if schedule.hours_no_reading_count %}
+    <span class="text-danger">{{ schedule.hours_no_reading_count }} équipement(s) sans relevé horaire.</span>
+    {% endif %}
+  </div>
+  <a class="btn btn-sm btn-outline-primary" href="/maintenance-schedule">Voir l'échéancier</a>
+</div>
+{% endif %}
+
 <div class="row g-4">
   <div class="col-lg-7">
     <div class="card">
@@ -81,6 +225,33 @@
   </div>
 
   <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Prochaines échéances (30 jours)</span>
+        <a class="small" href="/maintenance-schedule">Tout voir</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for row in schedule.rows[:5] %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <strong>{{ row.equipment_code }}</strong> — {{ row.operation_label }}
+              <div class="small text-muted">
+                {{ row.periodicity_label }}
+                {% if row.is_hour_based and row.due_operating_hours is not none %}
+                · seuil {{ row.due_operating_hours }} h (compteur {{ row.current_operating_hours }} h)
+                {% elif row.due_date %} · échéance {{ row.due_date.strftime('%d/%m/%Y') }}{% endif %}
+              </div>
+            </div>
+            <span class="badge {{ row.status_css }}">{{ row.status_label }}</span>
+          </div>
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">Aucune échéance dans les 30 prochains jours.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
     <div class="card">
       <div class="card-header">
         Dernières saisies rétroactives

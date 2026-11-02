@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from fastapi import Request
@@ -49,6 +49,19 @@ def as_date(data: dict[str, str], key: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise ValueError(f"'{key}' doit être une date au format AAAA-MM-JJ.") from exc
+
+
+def as_datetime(data: dict[str, str], key: str) -> datetime | None:
+    """Lit un champ ``datetime-local`` (AAAA-MM-JJTHH:MM) ou ISO complet."""
+    value = (data.get(key) or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"'{key}' doit être une date et une heure au format AAAA-MM-JJTHH:MM."
+        ) from exc
 
 
 def as_decimal(data: dict[str, str], key: str) -> Decimal | None:

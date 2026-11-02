@@ -49,7 +49,13 @@ tableau de bord affiche les dernières saisies rétroactives à justifier.
 | **Motore di ricerca** (moteur de recherche) | Filtres de la liste des équipements | `equipments` + `/equipments/table` |
 | **Gestione utenti** (utilisateurs, droits) | Utilisateur + rôle | `users` |
 | — | Piste d'audit / dérogations | `audit_logs` |
-| **Chiamate / Interventi** (interventions) | *Itération 2* | *(prévu)* |
+| **Piani di manutenzione periodica** | Contrainte périodique d'une famille | `periodic_maintenances` |
+| **Fornitori / terzisti** | Fournisseur de maintenance | `maintenance_suppliers` |
+| **Chiamate / Interventi** (interventions) | Réalisation d'OT rattachée à une règle | `maintenance_executions` |
+| **Ricambi** (pièces de rechange) | Catalogue des pièces + mouvements de stock | `spare_parts`, `stock_movements` |
+| **Attrezzature / strumenti di misura** | Équipement de maintenance non consommé | `maintenance_tools` |
+| **Tarature / verifiche periodiche** | Registre des étalonnages | `tool_calibrations` |
+| **Prestito attrezzature** | Prêt / utilisation lié à un OT | `tool_usages` |
 
 Le modèle distingue deux notions que WinMaint porte dans une seule table :
 un équipement n'a pas d'emplacement « en dur », il est **implanté** dans un
@@ -77,7 +83,8 @@ Puis :
 
 | URL | Contenu |
 |---|---|
-| http://127.0.0.1:8000/ | Interface web (tableau de bord) |
+| http://127.0.0.1:8000/ | Interface web (tableau de bord, après connexion) |
+| http://127.0.0.1:8000/login | Connexion |
 | http://127.0.0.1:8000/docs | Documentation interactive de l'API |
 | http://127.0.0.1:8000/api/stats/dashboard | Exemple de réponse JSON |
 
@@ -152,7 +159,203 @@ requêtes HTTP documentées sur `/api/equipments`.
 
 ---
 
-## 5. API REST
+## 5. Maintenance périodique portée par les familles
+
+Le module transpose les **plans de maintenance préventive** : les contraintes
+sont définies **une seule fois sur la famille d'équipements**
+(`equipment_types`), puis héritées automatiquement par tous ses équipements.
+On évite ainsi de ressaisir les mêmes règles machine par machine.
+
+| Notion | Portée | Table |
+|---|---|---|
+| Fournisseur de maintenance | Référentiel global | `maintenance_suppliers` |
+| Contrainte périodique | Famille d'équipements | `periodic_maintenances` |
+| Réalisation d'OT | Équipement + contrainte | `maintenance_executions` |
+
+**Une contrainte** combine :
+
+- une opération (`code`, libellé, description) et un type de maintenance
+  (préventive systématique, conditionnelle, réglementaire, inspection) ;
+- une **périodicité** : un nombre et une unité (jours, semaines, mois, années,
+  ou **heures de fonctionnement**) ;
+- un **ancrage** : mise en service de l'équipement (défaut), première
+  implantation, ou date fixe. Il est toujours forcé à la mise en service pour
+  une périodicité en heures ;
+- un fournisseur facultatif, une tolérance en jours et une durée estimée.
+
+**Calcul des échéances.** L'échéancier est une **projection théorique** : aucune
+date n'est stockée par équipement. Les occurrences sont calculées depuis la
+date d'ancrage, sans enchaîner les ajouts, afin d'éviter la dérive de fin de
+mois (31 janvier + 2 mois = 31 mars). Une tolérance permet de classer une
+échéance tout juste dépassée en « dans la tolérance » plutôt qu'en retard.
+
+**Réalisations d'OT.** La saisie d'une réalisation est **append-only** : elle
+fige l'échéance théorique de référence et l'écart signé en jours (négatif =
+avance). Le retard est toujours mesuré **par rapport au référentiel**, jamais
+depuis la dernière réalisation. Une date future est refusée. L'échéancier
+considère l'occurrence précédente comme couverte si la dernière réalisation
+porte sur une échéance de référence au moins égale.
+
+**Périodicités en heures de fonctionnement.** Chaque équipement porte un
+**compteur horaire courant** (`operating_hours`) et un **relevé initial à la
+mise en service** (`initial_operating_hours`). L'application ne peut pas
+prévoir à l'avance quand un seuil sera franchi : elle ne calcule donc pas de
+date d'échéance et laisse la ligne **ouverte** dans l'échéancier.
+
+- Premier cycle : les seuils déjà franchis depuis le relevé initial sont
+  ignorés ; le prochain multiple de l'intervalle est affiché.
+- Contrôle à planifier : dès qu'il reste **10 heures ou moins** avant le
+  seuil, la ligne passe en `heures à planifier`.
+- Seuil atteint ou dépassé : après une réalisation, le cycle suivant repart du
+  relevé saisi ; tant que le compteur n'est pas redescendu, la ligne reste en
+  `seuil d'heures dépassé`.
+- Une réalisation en heures fige le **relevé du compteur** (pas d'échéance ni
+  d'écart en jours) et met à jour le compteur de l'équipement s'il progresse.
+- Aucun ordre de travail n'est généré automatiquement : la ligne ouverte joue
+  le rôle de rappel.
+
+**Cycle de démonstration** :
+
+1. créer un fournisseur dans `Fournisseurs de maintenance` ;
+2. ouvrir une famille dans `Types d'équipements` et ajouter ses contraintes,
+   y compris une périodicité en heures ;
+3. renseigner le compteur horaire sur la fiche d'un équipement de cette
+   famille ;
+4. consulter `Échéancier` (filtres usine / famille / fournisseur / horizon) :
+   les lignes en heures affichent le seuil, le compteur et les heures restantes ;
+5. saisir une réalisation depuis l'échéancier ou la fiche équipement ;
+6. vérifier le retard ou le relevé horaire dans l'historique et le journal
+   d'audit (`execute`).
+
+> Périmètre volontairement limité à la **configuration + l'échéancier** : la
+> génération automatique d'ordres de travail reste une évolution ultérieure.
+
+---
+
+## 6. Pièces de rechange et équipements de maintenance
+
+### 6.1 Pièces de rechange
+
+Le module **Inventaire → Pièces de rechange** tient un catalogue de pièces
+consommables et leur stock. Chaque pièce porte un code, une désignation, une
+catégorie, un fournisseur, une usine, un emplacement de stockage, une unité,
+un seuil minimum, un stock maximum facultatif et un coût unitaire.
+
+**Le stock n'est jamais modifié directement.** Il évolue uniquement par des
+**mouvements append-only** :
+
+| Mouvement | Effet |
+|---|---|
+| `Entrée` | Ajoute la quantité reçue |
+| `Sortie` | Retire la quantité consommée (refusée si le stock est insuffisant) |
+| `Inventaire` | Aligne le stock sur la quantité réellement comptée |
+
+Un mouvement peut être rattaché à un **ordre de travail** et à un document
+(bon de commande, bon de sortie…), avec un motif. Une date future est refusée.
+À la création d'une pièce, un stock initial positif génère automatiquement un
+mouvement d'entrée « Stock initial ». Une erreur de saisie se corrige par un
+mouvement inverse : l'historique n'est ni modifiable ni supprimable.
+
+Les pièces actives dont le stock atteint le seuil minimum sont signalées dans
+le tableau de bord. Une pièce qui possède un historique ne peut pas être
+supprimée : on la désactive pour la retirer des alertes de réapprovisionnement.
+
+### 6.2 Équipements de maintenance
+
+Le module **Inventaire → Équipements de maintenance** couvre les outils et
+moyens de contrôle **non consommés** (pied à coulisse, micromètre, manomètre,
+clé dynamométrique…). Chaque équipement possède sa propre **fiche
+d'utilisation**, qui rassemble :
+
+- son identité : code, désignation, catégorie, fabricant, modèle, numéro de
+  série, usine et emplacement de stockage ;
+- sa **contrainte légale d'étalonnage** : périodicité, dernier étalonnage,
+  prochaine échéance, organisme, référence normative ;
+- le **registre des étalonnages** (append-only) avec certificat, résultat,
+  coût et observations ;
+- l'**historique des prêts / utilisations**, rattaché à un ordre de travail et
+  à un utilisateur, avec date de début, date de restitution et observations.
+
+**Règles de disponibilité.** Un outil ne peut être emprunté que s'il est actif,
+disponible, ni en maintenance ni hors service, et si son étalonnage est valide.
+Le prêt est bloqué lorsqu'un étalonnage obligatoire est **manquant** ou **en
+retard**. La restitution remet automatiquement l'outil en disponibilité. Un
+étalonnage **non conforme** place l'outil hors service.
+
+**Étalonnage calendaire uniquement.** Les unités autorisées sont les jours,
+semaines, mois et années : un étalonnage ne peut pas être déclenché par des
+heures de fonctionnement. La prochaine échéance est calculée automatiquement à
+partir de la date d'étalonnage et de la périodicité, sauf si une date explicite
+est fournie. Une alerte apparaît **30 jours** avant l'échéance.
+
+Comme pour les pièces, un équipement qui possède un historique d'étalonnage ou
+d'utilisation ne peut pas être supprimé : on le désactive ou on le passe en
+« Réformé ». Le tableau de bord affiche les étalonnages en retard, à prévoir
+sous 30 jours et jamais réalisés.
+
+### 6.3 Migration
+
+La migration `0005_inventory_tools` crée les tables `spare_parts`,
+`stock_movements`, `maintenance_tools`, `tool_calibrations` et `tool_usages`,
+avec leurs index et contraintes de clés étrangères. Elle ajoute également
+l'index manquant `ix_work_orders_created_by_id` déjà déclaré dans le modèle.
+
+---
+
+## 7. Maintenance corrective
+
+Le module **Interventions** traite les pannes et demandes de dépannage, par
+opposition aux OT préventifs générés depuis l'échéancier. Une intervention
+corrective réutilise la numérotation des OT (`OT-<année>-<séquence>`) mais reste
+identifiée par `work_orders.is_corrective = true` : elle n'apparaît donc pas
+dans la page **Ordres de travail** et se pilote depuis sa propre fiche.
+
+### 7.1 Circuit de traitement
+
+| Étape | Acteur | Règle |
+|---|---|---|
+| Création de la demande | Tout utilisateur connecté | Équipement actif, symptôme obligatoire, priorité et date souhaitée facultatives |
+| Affectation | `responsable` ou `admin` | Uniquement vers un `technicien`, un `responsable` ou un `admin` actif ; impossible une fois l'intervention démarrée |
+| Démarrage | Technicien affecté ou manager | Enregistre l'heure précise de début et passe l'OT en `in_progress` |
+| Consommation des pièces | Technicien affecté ou manager | Uniquement pendant l'intervention en cours |
+| Clôture | Technicien affecté ou manager | Compte rendu obligatoire, heure de fin ≥ heure de début, durée calculée |
+| Annulation | Demandeur ou manager | Impossible si une pièce a déjà été consommée |
+
+Le cycle de statut est `open` → `assigned` → `in_progress` → `done`, avec
+`cancelled` comme sortie alternative. Les services historiques `take`,
+`assign` et `update_status` des OT préventifs refusent explicitement une
+intervention corrective : chaque nature garde son propre workflow.
+
+### 7.2 Pièces détachées
+
+Une pièce suit deux temps :
+
+1. **Demande** (`requested`) : le technicien indique la pièce et la quantité
+   souhaitée. Aucun stock n'est encore mouvementé.
+2. **Utilisation** (`used`) : la quantité réellement consommée est enregistrée.
+   Une **sortie de stock append-only** est alors créée et rattachée à l'OT,
+   avec contrôle du stock disponible.
+
+Une demande encore en attente peut être annulée (`cancelled`). Une pièce déjà
+utilisée reste définitivement tracée dans l'historique du stock : l'annulation
+de l'intervention est alors refusée.
+
+### 7.3 Migration
+
+La migration `0006_corrective_maintenance` ajoute les colonnes
+`is_corrective`, `intervention_started_at`, `intervention_ended_at` et
+`work_done` à `work_orders`, puis crée la table `intervention_parts` avec ses
+index et contraintes de clés étrangères.
+
+La migration `0007_work_order_timestamps` rétablit la valeur par défaut
+`CURRENT_TIMESTAMP` sur `work_orders.created_at` et `work_orders.updated_at`
+(oubliée par la migration `0004`), afin que la création d'un OT fonctionne sur
+une base réellement migrée et non seulement sur un schéma issu de
+`create_all`.
+
+---
+
+## 8. API REST
 
 | Méthode | Route | Description |
 |---|---|---|
@@ -168,26 +371,79 @@ requêtes HTTP documentées sur `/api/equipments`.
 | `POST` | `/api/equipments/{id}/placements` | Déplacer (date d'effet + dérogation) — ou implanter si l'équipement n'en a pas encore |
 | `GET` | `/api/audit` | Journal d'audit |
 | `GET` | `/api/stats/dashboard` | Indicateurs du tableau de bord |
+| `GET` | `/api/maintenance-suppliers` | Fournisseurs de maintenance (`active_only`) |
+| `POST` | `/api/maintenance-suppliers` | Créer un fournisseur |
+| `GET` | `/api/maintenance-suppliers/{id}` | Détail d'un fournisseur |
+| `PUT` | `/api/maintenance-suppliers/{id}` | Modifier un fournisseur |
+| `DELETE` | `/api/maintenance-suppliers/{id}` | Supprimer (refusé s'il est utilisé) |
+| `GET` | `/api/equipment-types/{id}/periodic-maintenances` | Contraintes d'une famille |
+| `POST` | `/api/equipment-types/{id}/periodic-maintenances` | Ajouter une contrainte |
+| `GET` | `/api/periodic-maintenances/{id}` | Détail d'une contrainte |
+| `PUT` | `/api/periodic-maintenances/{id}` | Modifier une contrainte |
+| `DELETE` | `/api/periodic-maintenances/{id}` | Supprimer (refusé si des réalisations existent) |
+| `GET` | `/api/equipments/{id}/maintenance-executions` | Réalisations d'un équipement |
+| `POST` | `/api/equipments/{id}/maintenance-executions` | Saisir une réalisation (date future refusée ; `operating_hours` requis si la règle est en heures) |
+| `GET` | `/api/maintenance-schedule` | Échéancier (`site_id`, `equipment_type_id`, `supplier_id`, `horizon_days`, `search`) |
+| `GET` | `/api/spare-parts` | Catalogue filtrable (`search`, `category`, `low_stock_only`, `active_only`) |
+| `GET` | `/api/spare-parts/summary` | Indicateurs de stock (seuils, ruptures, valeur) |
+| `POST` | `/api/spare-parts` | Créer une pièce (+ mouvement « Stock initial ») |
+| `GET` | `/api/spare-parts/{id}` | Détail d'une pièce |
+| `PUT` | `/api/spare-parts/{id}` | Modifier la fiche (hors stock) |
+| `DELETE` | `/api/spare-parts/{id}` | Supprimer (refusé si des mouvements existent) |
+| `GET` | `/api/spare-parts/{id}/movements` | Historique des mouvements |
+| `POST` | `/api/spare-parts/{id}/movements` | Enregistrer une entrée, une sortie ou un inventaire |
+| `GET` | `/api/maintenance-tools` | Fiches filtrables (`search`, `category`, `status_filter`, `calibration_status`, `active_only`) |
+| `GET` | `/api/maintenance-tools/summary` | Indicateurs d'étalonnage et de disponibilité |
+| `POST` | `/api/maintenance-tools` | Créer une fiche d'utilisation |
+| `GET` | `/api/maintenance-tools/{id}` | Détail d'un équipement de maintenance |
+| `PUT` | `/api/maintenance-tools/{id}` | Modifier la fiche |
+| `PUT` | `/api/maintenance-tools/{id}/status` | Changer la disponibilité |
+| `DELETE` | `/api/maintenance-tools/{id}` | Supprimer (refusé si un historique existe) |
+| `GET` | `/api/maintenance-tools/{id}/calibrations` | Registre des étalonnages |
+| `POST` | `/api/maintenance-tools/{id}/calibrations` | Enregistrer un étalonnage |
+| `GET` | `/api/maintenance-tools/{id}/usages` | Historique des prêts / utilisations |
+| `POST` | `/api/maintenance-tools/{id}/usages` | Démarrer une utilisation (bloquée si étalonnage invalide) |
+| `POST` | `/api/maintenance-tools/{id}/usages/{usage_id}/return` | Restituer l'outil |
+| `GET` | `/api/interventions` | Demandes correctives filtrables (`status_filter`, `assigned_to_id`, `search`, `open_only`) |
+| `POST` | `/api/interventions` | Créer une demande d'intervention (`X-GMAO-User` requis) |
+| `GET` | `/api/interventions/{id}` | Détail d'une intervention avec ses pièces |
+| `PUT` | `/api/interventions/{id}/assignment` | Affecter un technicien (`responsable`/`admin`) |
+| `POST` | `/api/interventions/{id}/start` | Enregistrer le début d'intervention |
+| `POST` | `/api/interventions/{id}/finish` | Clôturer avec compte rendu et heure de fin |
+| `POST` | `/api/interventions/{id}/cancel` | Annuler une demande non consommée |
+| `GET` | `/api/interventions/{id}/parts` | Pièces demandées / utilisées |
+| `POST` | `/api/interventions/{id}/parts` | Demander une pièce de rechange |
+| `POST` | `/api/interventions/{id}/parts/{part_id}/use` | Consommer la pièce (sortie de stock) |
+| `POST` | `/api/interventions/{id}/parts/{part_id}/cancel` | Annuler une demande de pièce en attente |
 
-L'utilisateur courant est identifié par le cookie `gmao_current_user`
-(interface web) ou l'en-tête `X-GMAO-User` (API). L'itération 1 utilise une
-simple sélection d'utilisateur, sans mot de passe : l'objectif est
-pédagogique (voir *qui* saisit *quoi*), pas la sécurité.
+L'interface web exige une **connexion** (cookie de session signé, valable
+7 jours). L'API reste utilisable sans session en identifiant l'utilisateur par
+l'en-tête `X-GMAO-User: <identifiant>`. Les rôles (`admin`, `responsable`,
+`technicien`, `lecture`) sont stockés dans `users.role` ; l'objectif reste
+pédagogique (tracer *qui* saisit *quoi*), pas de constituer un annuaire
+d'entreprise complet.
 
 ---
 
-## 6. Structure du projet
+## 9. Structure du projet
 
 ```
 gmao-app/
 ├── alembic/                  migrations (source de vérité : les modèles)
-│   └── versions/0001_baseline.py
+│   └── versions/
+│       ├── 0001_baseline.py
+│       ├── 0002_periodic_maintenance.py
+│       ├── 0003_operating_hours.py
+│       ├── 0004_work_orders_users_auth.py
+│       ├── 0005_inventory_tools.py
+│       ├── 0006_corrective_maintenance.py
+│       └── 0007_work_order_timestamps.py
 ├── app/
 │   ├── api/                  routes REST JSON (/api)
-│   ├── models/               modèles SQLAlchemy (8 tables)
+│   ├── models/               modèles SQLAlchemy (18 tables)
 │   ├── repositories/         accès aux données (CTE récursive, pagination)
 │   ├── schemas/              contrats Pydantic (entrées / sorties)
-│   ├── services/             règles métier (dont backdating.py)
+│   ├── services/             règles métier (backdating, périodicité, stock, étalonnage, corrective)
 │   ├── web/                  interface Jinja2 + HTMX
 │   │   ├── templates/        pages et partials
 │   │   └── static/           css, js, Bootstrap & HTMX vendorisés (hors ligne)
@@ -199,7 +455,7 @@ gmao-app/
 │   └── entrypoint.sh         migrations + seed optionnel + uvicorn
 ├── scripts/seed.py           jeu de démonstration
 ├── scripts/backup.py         sauvegarde à chaud de la base SQLite
-├── tests/                    58 tests pytest
+├── tests/                    146 tests pytest
 ├── Dockerfile                image de production (un seul conteneur)
 ├── docker-compose.yml        service unique + volume de données
 └── requirements.txt          dépendances de production
@@ -218,10 +474,19 @@ gmao-app/
   garantie par la base et non seulement par le code.
 - **CTE récursive** pour calculer les sous-arbres d'emplacements (filtres
   « cet atelier et ses sous-emplacements »).
+- **Calcul calendaire maison** (`services/periodicity.py`) pour les
+  périodicités : ajout de mois avec gestion des fins de mois, occurrences
+  recalculées depuis l'ancrage (pas de dérive cumulée).
+- **Périodicités en heures** : seuils calculés sur le compteur de
+  l'équipement, sans date prévisionnelle ; alerte à 10 h et ligne laissée
+  ouverte dans l'échéancier.
+- **Journal append-only** des réalisations d'OT : l'échéance de référence et
+  l'écart sont figés (ou le relevé horaire pour une règle en heures), la règle
+  peut évoluer sans réécrire l'historique.
 
 ---
 
-## 7. Tests
+## 10. Tests
 
 ```bash
 .venv\Scripts\python.exe -m pytest
@@ -241,24 +506,31 @@ figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
 | `tests/test_equipment.py` | unicité du code, pré-remplissage depuis le type, filtres |
 | `tests/test_locations.py` | arborescence, unicité par usine, cycles, suppression protégée |
 | `tests/test_api.py` | API REST et pages web |
+| `tests/test_periodicity.py` | calculs calendaires, libellés, rejet des heures comme unité calendaire |
+| `tests/test_periodic_maintenance.py` | fournisseurs, règles de famille, échéancier calendaire et en heures, réalisations |
+| `tests/test_inventory.py` | mouvements de stock append-only, seuils, suppression protégée, étalonnages calendaires, blocage des prêts, API et formulaires web |
+| `tests/test_corrective_maintenance.py` | demande par tout utilisateur, affectation par le responsable, saisie des horaires et du compte rendu, pièces demandées puis consommées, stock insuffisant, annulation, API et pages web |
 
 ---
 
-## 8. Suite proposée (itération 2)
+## 11. Suite proposée
 
-Le module **interventions** (OT / ordres de travail) doit réutiliser
-`BackdatingPolicy` tel quel : une intervention saisie a posteriori
-sera datée, justifiée, et rattachée à **l'emplacement de l'équipement à la
-date de l'intervention** — ce que permet déjà la table
-`equipment_locations`.
+Le socle fonctionnel couvre désormais le référentiel, l'échéancier, les
+ordres de travail, les utilisateurs, l'inventaire des pièces, les fiches
+d'utilisation des équipements de maintenance et la maintenance corrective.
 
-Autres pistes : gestion des stocks et pièces de rechange, plans de
-maintenance préventive, calcul du MTBF/MTTR, authentification réelle et
-rôles (le champ `users.role` est déjà en place).
+Pistes d'évolution :
+
+- réserver un outil pour un OT et alerter lorsqu'un prêt dépasse la durée
+  prévue ;
+- calculer le MTBF / MTTR à partir des historiques d'intervention ;
+- proposer des campagnes d'étalonnage groupées par organisme et par échéance ;
+- ajouter des exports (CSV / PDF) des fiches d'utilisation et des mouvements de
+  stock.
 
 ---
 
-## 9. Déploiement Docker (un seul conteneur)
+## 12. Déploiement Docker (un seul conteneur)
 
 L'application est déployable telle quelle : **un conteneur unique** qui
 contient le serveur (FastAPI + uvicorn) **et** la base SQLite. Aucune base
@@ -287,7 +559,8 @@ docker compose ps                # état + santé du conteneur
 
 | URL | Contenu |
 |---|---|
-| http://localhost:8000/ | Interface web (tableau de bord) |
+| http://localhost:8000/ | Interface web (tableau de bord, après connexion) |
+| http://localhost:8000/login | Connexion |
 | http://localhost:8000/docs | Documentation interactive de l'API |
 | http://localhost:8000/health | Sonde de santé (ping de la base) |
 
@@ -349,7 +622,7 @@ docker compose down -v   # supprime AUSSI la base : à manier avec prudence
 
 ---
 
-## 10. Historique
+## 13. Historique
 
 - **v0.1** — prototype minimal : une table `equipments` avec l'emplacement
   en texte libre.
@@ -358,3 +631,12 @@ docker compose down -v   # supprime AUSSI la base : à manier avec prudence
   moteur de rétrodatation, API REST + interface web, migrations Alembic.
 - **v0.2.1** — déploiement conteneurisé : image Docker, service unique avec
   volume de données SQLite, migrations au démarrage, sauvegarde à chaud.
+- **v0.3** — inventaire : catalogue des pièces de rechange et mouvements de
+  stock append-only, fiches d'utilisation des équipements de maintenance,
+  étalonnages périodiques calendaires et prêts liés aux ordres de travail
+  (migration `0005_inventory_tools`).
+- **v0.4** — maintenance corrective : demande d'intervention par tout
+  utilisateur, affectation par le responsable, saisie des heures de début et de
+  fin avec compte rendu, demande puis consommation des pièces détachées avec
+  sortie de stock rattachée à l'OT (migrations `0006_corrective_maintenance` et
+  `0007_work_order_timestamps`).

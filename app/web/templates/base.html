@@ -20,20 +20,43 @@
       <a class="nav-link {% if page_title == 'Emplacements' %}active{% endif %}" href="/locations">Emplacements</a>
       <a class="nav-link {% if page_title == "Types d'équipements" %}active{% endif %}" href="/equipment-types">Types d'équipements</a>
       <a class="nav-link {% if page_title == 'Équipements' %}active{% endif %}" href="/equipments">Équipements</a>
+      <div class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle {% if request.url.path.startswith('/spare-parts') or request.url.path.startswith('/maintenance-tools') %}active{% endif %}"
+           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Inventaire</a>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="/spare-parts">Pièces de rechange</a></li>
+          <li><a class="dropdown-item" href="/maintenance-tools">Équipements de maintenance</a></li>
+        </ul>
+      </div>
+      <a class="nav-link {% if page_title == 'Fournisseurs de maintenance' %}active{% endif %}" href="/maintenance-suppliers">Fournisseurs</a>
+      <a class="nav-link {% if page_title == 'Échéancier de maintenance' %}active{% endif %}" href="/maintenance-schedule">Échéancier</a>
+      <a class="nav-link {% if page_title == "Ordres de travail" %}active{% endif %}" href="/work-orders">Ordres de travail</a>
+      <a class="nav-link {% if page_title == 'Maintenance corrective' or page_title.startswith('Intervention') or page_title == "Nouvelle demande d'intervention" %}active{% endif %}" href="/interventions">Interventions</a>
       <a class="nav-link {% if page_title == "Journal d'audit" %}active{% endif %}" href="/audit">Journal d'audit</a>
+      {% if current_user and current_user.role == 'admin' %}
+      <a class="nav-link {% if page_title == "Gestion des utilisateurs" %}active{% endif %}" href="/users">Utilisateurs</a>
+      {% endif %}
     </div>
-    <form class="d-flex align-items-center gap-2" method="post" action="/user/switch">
-      <label class="text-white-50 small" for="username">Utilisateur</label>
-      <select class="form-select form-select-sm" name="username" id="username" onchange="this.form.submit()">
-        <option value="">— non défini —</option>
-        {% for user in users %}
-        <option value="{{ user.username }}" {% if current_user and current_user.id == user.id %}selected{% endif %}>
-          {{ user.display_name }} ({{ user.role }})
-        </option>
-        {% endfor %}
-      </select>
-      <noscript><button class="btn btn-sm btn-outline-light" type="submit">OK</button></noscript>
-    </form>
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user %}
+      <span class="text-white small">{{ current_user.display_name }} <span class="text-white-50">({{ current_user.role }})</span></span>
+      <a class="btn btn-sm btn-outline-light" href="/logout">Déconnexion</a>
+      {% else %}
+      <a class="btn btn-sm btn-outline-light" href="/login">Connexion</a>
+      {% endif %}
+      <form class="d-flex align-items-center gap-2" method="post" action="/user/switch">
+        <label class="text-white-50 small" for="username">Changer d'utilisateur</label>
+        <select class="form-select form-select-sm" name="username" id="username" onchange="this.form.submit()">
+          <option value="">— non défini —</option>
+          {% for user in users or [] %}
+          <option value="{{ user.username }}" {% if current_user and current_user.id == user.id %}selected{% endif %}>
+            {{ user.display_name }} ({{ user.role }})
+          </option>
+          {% endfor %}
+        </select>
+        <noscript><button class="btn btn-sm btn-outline-light" type="submit">OK</button></noscript>
+      </form>
+    </div>
   </div>
 </nav>
 
