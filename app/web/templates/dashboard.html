@@ -99,6 +99,100 @@
 </div>
 
 <div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Interventions correctives (90 j)</div>
+      <div class="fs-3 fw-bold">{{ analytics.total_failures }}</div>
+      <a class="small" href="/analytics?days=90">Ouvrir l'analyse</a>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">MTTR moyen (90 j)</div>
+      <div class="fs-3 fw-bold">{{ analytics.global_mttr_label }}</div>
+      <div class="small text-muted">temps moyen de réparation</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Disponibilité globale (90 j)</div>
+      <div class="fs-3 fw-bold">{{ analytics.global_availability_label }}</div>
+      <div class="small text-muted">arrêt {{ analytics.total_downtime_label }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Coût pièces (90 j)</div>
+      <div class="fs-3 fw-bold">{{ analytics.total_parts_cost_label }} €</div>
+      <div class="small text-muted">pièces consommées sur OT</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-4 border-danger-subtle">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Alertes d'exploitation</span>
+    <span class="badge {% if alerts.total_count %}text-bg-danger{% else %}text-bg-success{% endif %}">
+      {{ alerts.total_count }} alerte(s)
+    </span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong>Demandes non affectées depuis {{ alerts.threshold_days }} jours</strong>
+          <span class="badge {% if alerts.unassigned_count %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ alerts.unassigned_count }}</span>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for alert in alerts.unassigned %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between gap-2">
+              <div>
+                <a class="fw-semibold" href="/interventions/{{ alert.work_order_id }}">{{ alert.code }}</a>
+                — {{ alert.equipment_code }}
+                <div class="small text-muted">{{ alert.equipment_name }}</div>
+              </div>
+              <span class="badge text-bg-warning text-nowrap">{{ alert.age_label }}</span>
+            </div>
+          </li>
+          {% else %}
+          <li class="list-group-item px-0 text-muted small">Aucune demande en attente d'affectation.</li>
+          {% endfor %}
+        </ul>
+        {% if alerts.unassigned_count %}
+        <a class="btn btn-sm btn-outline-danger" href="/interventions?status=open">Affecter les demandes</a>
+        {% endif %}
+      </div>
+      <div class="col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong>OT préventifs en retard</strong>
+          <span class="badge {% if alerts.overdue_work_order_count %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ alerts.overdue_work_order_count }}</span>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for alert in alerts.overdue_work_orders %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between gap-2">
+              <div>
+                <a class="fw-semibold" href="/work-orders?overdue=1">{{ alert.code }}</a>
+                — {{ alert.equipment_code }}
+                <div class="small text-muted">échéance {{ alert.due_date.strftime('%d/%m/%Y') }} · {{ alert.status_label }}</div>
+              </div>
+              <span class="badge text-bg-danger text-nowrap">{{ alert.late_label }}</span>
+            </div>
+          </li>
+          {% else %}
+          <li class="list-group-item px-0 text-muted small">Aucun OT préventif en retard.</li>
+          {% endfor %}
+        </ul>
+        {% if alerts.overdue_work_order_count %}
+        <a class="btn btn-sm btn-outline-danger" href="/work-orders?overdue=1">Voir les OT en retard</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">

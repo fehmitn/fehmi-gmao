@@ -1,6 +1,7 @@
 """Routers de l'API REST."""
 
 from app.api.audit import router as audit_router
+from app.api.analytics import router as analytics_router
 from app.api.equipment import router as equipment_router
 from app.api.equipment_types import router as equipment_types_router
 from app.api.interventions import router as interventions_router
@@ -15,6 +16,7 @@ from app.api.spare_parts import router as spare_parts_router
 from app.api.work_orders import router as work_orders_router
 
 __all__ = [
+    "analytics_router",
     "audit_router",
     "equipment_router",
     "equipment_types_router",

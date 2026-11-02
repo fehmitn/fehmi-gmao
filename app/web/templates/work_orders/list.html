@@ -16,6 +16,7 @@
   {% endif %}
   <a class="btn btn-outline-secondary" href="/work-orders?mine=1">Mes OT</a>
   <a class="btn btn-outline-secondary" href="/work-orders">Tous les OT</a>
+  <a class="btn btn-outline-danger" href="/work-orders?overdue=1">OT en retard</a>
   <a class="btn btn-outline-secondary" href="/maintenance-schedule">Voir l'échéancier</a>
 </div>
 {% endblock %}
@@ -51,13 +52,19 @@
       <div class="fs-3 fw-bold text-success">{{ counts.done }}</div>
     </div></div>
   </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">En retard</div>
+      <div class="fs-3 fw-bold text-danger">{{ counts.overdue }}</div>
+    </div></div>
+  </div>
 </div>
 
 <div class="card mb-3">
   <div class="card-header">Filtres</div>
   <div class="card-body">
     <form method="get" action="/work-orders" class="row g-2 align-items-end">
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Statut</label>
         <select class="form-select" name="status">
           <option value="">Tous</option>
@@ -79,7 +86,14 @@
         <label class="form-label">Recherche</label>
         <input class="form-control" name="search" value="{{ filters.search or '' }}" placeholder="Code OT, équipement, opération...">
       </div>
-      <div class="col-md-3 d-flex gap-2">
+      <div class="col-md-2 d-flex align-items-end">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="overdue" value="1" id="overdue"
+                 {% if filters.overdue %}checked{% endif %}>
+          <label class="form-check-label" for="overdue">En retard uniquement</label>
+        </div>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
         <button class="btn btn-outline-primary" type="submit">Filtrer</button>
         <a class="btn btn-outline-secondary" href="/work-orders">Réinitialiser</a>
       </div>

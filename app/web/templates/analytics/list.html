@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap">
+  <a class="btn btn-outline-secondary" href="/interventions">Maintenance corrective</a>
+  <a class="btn btn-outline-secondary" href="/work-orders?overdue=1">OT en retard</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Interventions correctives</div>
+      <div class="fs-3 fw-bold">{{ summary.total_failures }}</div>
+      <div class="small text-muted">sur {{ summary.equipment_count }} équipement(s)</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Temps d'arrêt total</div>
+      <div class="fs-3 fw-bold">{{ summary.total_downtime_label }}</div>
+      <div class="small text-muted">du {{ summary.start_date.strftime('%d/%m/%Y') }} au {{ summary.end_date.strftime('%d/%m/%Y') }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">MTTR moyen</div>
+      <div class="fs-3 fw-bold">{{ summary.global_mttr_label }}</div>
+      <div class="small text-muted">temps moyen de réparation</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Disponibilité globale</div>
+      <div class="fs-3 fw-bold">{{ summary.global_availability_label }}</div>
+      <div class="small text-muted">coût pièces : {{ summary.total_parts_cost_label }} €</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Période et filtres</div>
+  <div class="card-body">
+    <form method="get" action="/analytics" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Période</label>
+        <select class="form-select" name="days">
+          {% for choice in period_choices %}
+          <option value="{{ choice }}" {% if filters.days == choice %}selected{% endif %}>{{ choice }} jours</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Usine</label>
+        <select class="form-select" name="site_id">
+          <option value="">Toutes</option>
+          {% for site in sites %}
+          <option value="{{ site.id }}" {% if filters.site_id == site.id %}selected{% endif %}>{{ site.code }} — {{ site.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tri</label>
+        <select class="form-select" name="sort">
+          <option value="availability" {% if filters.sort == 'availability' %}selected{% endif %}>Disponibilité (plus faible d'abord)</option>
+          <option value="mttr" {% if filters.sort == 'mttr' %}selected{% endif %}>MTTR (plus long d'abord)</option>
+          <option value="mtbf" {% if filters.sort == 'mtbf' %}selected{% endif %}>MTBF (plus court d'abord)</option>
+          <option value="failures" {% if filters.sort == 'failures' %}selected{% endif %}>Nombre de pannes</option>
+          <option value="cost" {% if filters.sort == 'cost' %}selected{% endif %}>Coût des pièces</option>
+          <option value="code" {% if filters.sort == 'code' %}selected{% endif %}>Code équipement</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit">Actualiser</button>
+        <a class="btn btn-outline-secondary" href="/analytics">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Fiabilité et coûts par équipement</span>
+    <span class="small text-muted">MTBF et MTTR exprimés en heures/minutes</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Équipement</th>
+          <th>Usine</th>
+          <th class="text-end">Pannes</th>
+          <th class="text-end">Temps d'arrêt</th>
+          <th class="text-end">MTTR</th>
+          <th class="text-end">MTBF</th>
+          <th class="text-end">Disponibilité</th>
+          <th class="text-end">Coût pièces</th>
+          <th>Dernière panne</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <a class="fw-semibold" href="/equipments/{{ row.equipment_id }}">{{ row.equipment_code }}</a>
+            <div class="small text-muted">{{ row.equipment_name }}</div>
+            {% if row.recurrent %}
+            <span class="badge text-bg-danger mt-1">{{ row.recurrent_label }}</span>
+            {% endif %}
+          </td>
+          <td class="text-nowrap">{{ row.site_code or '—' }}</td>
+          <td class="text-end">
+            {{ row.failure_count }}
+            {% if row.failure_count_12m and row.failure_count_12m != row.failure_count %}
+            <div class="small text-muted">{{ row.failure_count_12m }} sur 12 mois</div>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">{{ row.downtime_label }}</td>
+          <td class="text-end text-nowrap">{{ row.mttr_label }}</td>
+          <td class="text-end text-nowrap">{{ row.mtbf_label }}</td>
+          <td class="text-end">
+            <span class="badge {% if row.availability is not none and row.availability < 0.95 %}text-bg-danger{% elif row.availability is not none and row.availability < 0.99 %}text-bg-warning{% else %}text-bg-success{% endif %}">
+              {{ row.availability_label }}
+            </span>
+          </td>
+          <td class="text-end text-nowrap">{{ row.parts_cost_label }} €</td>
+          <td class="text-nowrap">{{ row.last_failure_label }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Aucun équipement actif pour cette sélection.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Pannes récurrentes (≥ 3 sur 12 mois)</div>
+      <div class="list-group list-group-flush">
+        {% for row in rows if row.recurrent %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <a class="fw-semibold" href="/equipments/{{ row.equipment_id }}">{{ row.equipment_code }}</a>
+            <div class="small text-muted">{{ row.equipment_name }}</div>
+          </div>
+          <span class="badge text-bg-danger">{{ row.failure_count_12m }} pannes</span>
+        </div>
+        {% else %}
+        <div class="list-group-item text-muted">Aucune panne récurrente sur la période.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Coût des pièces par ordre de travail</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>OT</th>
+              <th>Équipement</th>
+              <th>Type</th>
+              <th class="text-end">Coût pièces</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for line in summary.cost_lines %}
+            <tr>
+              <td>
+                <a href="/interventions/{{ line.work_order_id }}">{{ line.code }}</a>
+              </td>
+              <td>
+                {{ line.equipment_code }}
+                <div class="small text-muted">{{ line.equipment_name }}</div>
+              </td>
+              <td>{{ line.kind_label }}</td>
+              <td class="text-end text-nowrap">{{ line.cost_label }} €</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Aucune consommation de pièce sur la période.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

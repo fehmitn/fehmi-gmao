@@ -65,6 +65,7 @@ from app.schemas.spare_part import (
     StockMovementCreate,
 )
 from app.services.dashboard_service import DashboardService
+from app.services.analytics_service import AnalyticsService, PERIOD_CHOICES
 from app.services.equipment_service import EquipmentService
 from app.services.equipment_type_service import EquipmentTypeService
 from app.services.intervention_service import InterventionService
@@ -77,6 +78,7 @@ from app.services.periodic_maintenance_service import PeriodicMaintenanceService
 from app.services.placement_service import PlacementService
 from app.services.site_service import SiteService
 from app.services.spare_part_service import SparePartService
+from app.services.clock import today
 from app.services.user_service import UserService
 from app.services.work_order_service import WorkOrderService
 from app.web import formtools as ft
@@ -124,6 +126,8 @@ def dashboard(
     tool_summary = MaintenanceToolService(db).summary()
     intervention_summary = InterventionService(db).summary()
     users = UserService(db).list_active()
+    analytics = AnalyticsService(db).summary(days=90)
+    alerts = AnalyticsService(db).alerts(threshold_days=3, limit=5)
     return render(
         request,
         "dashboard.html",
@@ -134,9 +138,57 @@ def dashboard(
             "stock_summary": stock_summary,
             "tool_summary": tool_summary,
             "intervention_summary": intervention_summary,
+            "analytics": analytics,
+            "alerts": alerts,
             "users": users,
             "current_user": actor,
             "page_title": "Tableau de bord",
+        },
+    )
+
+
+# ------------------------------------------------------------------- analyse
+@router.get("/analytics")
+def analytics_page(
+    request: Request,
+    days: int = 365,
+    site_id: int | None = None,
+    sort: str = "availability",
+    db: Session = Depends(get_db),
+    actor: User | None = Depends(get_current_user),
+) -> Response:
+    service = AnalyticsService(db)
+    summary = service.summary(days=days, site_id=site_id)
+
+    def sort_key(row):
+        if sort == "mttr":
+            return (row.mttr_minutes is None, -(row.mttr_minutes or 0), row.equipment_code)
+        if sort == "mtbf":
+            return (row.mtbf_minutes is None, row.mtbf_minutes or 0, row.equipment_code)
+        if sort == "cost":
+            return (-row.parts_cost, row.equipment_code)
+        if sort == "failures":
+            return (-row.failure_count, row.equipment_code)
+        if sort == "code":
+            return (row.equipment_code,)
+        return (
+            row.availability is None,
+            row.availability if row.availability is not None else 1.0,
+            row.equipment_code,
+        )
+
+    rows = sorted(summary.equipment, key=sort_key)
+    return render(
+        request,
+        "analytics/list.html",
+        {
+            "summary": summary,
+            "rows": rows,
+            "sites": SiteService(db).list(),
+            "period_choices": PERIOD_CHOICES,
+            "filters": {"days": summary.days, "site_id": site_id, "sort": sort},
+            "current_user": actor,
+            "page_title": "Analyse de maintenance",
         },
     )
 
@@ -1598,6 +1650,7 @@ def equipment_detail(
     site_service = SiteService(db)
     schedule_rows = MaintenanceScheduleService(db).for_equipment(equipment)
     executions = MaintenanceExecutionService(db).list_for_equipment(equipment_id)
+    analytics = AnalyticsService(db).kpi_for(equipment_id, days=365)
     return render(
         request,
         "equipments/detail.html",
@@ -1606,6 +1659,7 @@ def equipment_detail(
             "history": history,
             "schedule_rows": schedule_rows,
             "maintenance_executions": executions,
+            "analytics": analytics,
             "sites": site_service.list(),
             "locations": LocationService(db).list_by_site(equipment.site_id),
             "users": UserService(db).list_active(),
@@ -1828,6 +1882,7 @@ def work_orders_page(
     assigned_to_id: int | None = None,
     search: str | None = None,
     mine: str | None = None,
+    overdue: str | None = None,
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),
 ) -> Response:
@@ -1836,22 +1891,53 @@ def work_orders_page(
         assigned_to_id = actor.id
     if actor is not None and actor.role == "technicien" and assigned_to_id is None and mine != "0":
         assigned_to_id = actor.id
-    filters = {"status": status, "assigned_to_id": assigned_to_id, "search": search}
+    filters = {
+        "status": status,
+        "assigned_to_id": assigned_to_id,
+        "search": search,
+        "overdue": overdue == "1",
+    }
     work_orders = service.list(
         status=status or None,
         assigned_to_id=assigned_to_id,
         search=search or None,
         open_only=False,
+        corrective=False,
     )
+    current_date = today()
+    if filters["overdue"]:
+        work_orders = [
+            work_order
+            for work_order in work_orders
+            if work_order.due_date is not None
+            and work_order.due_date < current_date
+            and work_order.status
+            not in (WorkOrderStatus.DONE.value, WorkOrderStatus.CANCELLED.value)
+        ]
     technicians = UserService(db).list_active()
     from app.models.enums import WorkOrderStatus
 
+    preventive_orders = service.list(corrective=False)
     counts = {
-        "all": len(service.list()),
-        "open": len(service.list(status=WorkOrderStatus.OPEN.value)),
-        "assigned": len(service.list(status=WorkOrderStatus.ASSIGNED.value)),
-        "in_progress": len(service.list(status=WorkOrderStatus.IN_PROGRESS.value)),
-        "done": len(service.list(status=WorkOrderStatus.DONE.value)),
+        "all": len(preventive_orders),
+        "open": len(service.list(status=WorkOrderStatus.OPEN.value, corrective=False)),
+        "assigned": len(
+            service.list(status=WorkOrderStatus.ASSIGNED.value, corrective=False)
+        ),
+        "in_progress": len(
+            service.list(status=WorkOrderStatus.IN_PROGRESS.value, corrective=False)
+        ),
+        "done": len(service.list(status=WorkOrderStatus.DONE.value, corrective=False)),
+        "overdue": len(
+            [
+                work_order
+                for work_order in preventive_orders
+                if work_order.due_date is not None
+                and work_order.due_date < current_date
+                and work_order.status
+                not in (WorkOrderStatus.DONE.value, WorkOrderStatus.CANCELLED.value)
+            ]
+        ),
     }
     return render(
         request,
@@ -1974,6 +2060,7 @@ def _intervention_detail_context(
     return {
         "intervention": work_order,
         "parts": InterventionService(db).parts(work_order.id),
+        "parts_cost": AnalyticsService(db).parts_cost(work_order.id),
         "spare_parts": SparePartService(db).list(active_only=True),
         "technicians": _intervention_technicians(db),
         "can_manage": can_manage,

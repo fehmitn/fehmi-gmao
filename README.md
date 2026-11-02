@@ -353,6 +353,49 @@ La migration `0007_work_order_timestamps` rétablit la valeur par défaut
 une base réellement migrée et non seulement sur un schéma issu de
 `create_all`.
 
+### 7.4 Analyse de maintenance
+
+La page **Analyse** (`/analytics`) exploite les horodatages et les mouvements
+de stock déjà enregistrés pour produire des indicateurs de fiabilité et de
+coût sur une fenêtre glissante de 30, 90 ou 365 jours :
+
+| Indicateur | Formule retenue |
+|---|---|
+| **MTTR** | temps d'arrêt total ÷ nombre d'interventions correctives **terminées** |
+| **MTBF** | (durée de la fenêtre − temps d'arrêt) ÷ nombre d'interventions terminées |
+| **Disponibilité** | 1 − temps d'arrêt ÷ (durée de la fenêtre × nombre d'équipements actifs), bornée entre 0 et 1 |
+| **Coût pièces** | somme des sorties de stock rattachées à un OT × coût unitaire figé au moment du mouvement |
+| **Panne récurrente** | au moins 3 interventions correctives terminées sur les 12 derniers mois |
+
+Le coût d'une pièce est **figé au moment de la sortie de stock**
+(`stock_movements.unit_cost`) : une revalorisation ultérieure du catalogue ne
+réécrit pas l'historique. Les mouvements antérieurs à la migration `0008` sont
+initialisés avec le prix courant de leur pièce, puis le calcul applique ce
+repli si le coût est absent.
+
+La page propose un filtre par usine, un tri (disponibilité, MTTR, MTBF, nombre
+de pannes, coût) et deux tableaux de synthèse : un classement des équipements
+(les plus mauvais en tête) et le détail des coûts par ordre de travail. Les
+pannes récurrentes sont signalées par un badge sur la fiche de l'équipement.
+
+### 7.5 Alertes du tableau de bord
+
+Le tableau de bord affiche un bloc **Alertes d'exploitation** qui remonte :
+
+- les **demandes correctives non affectées** depuis au moins 3 jours ;
+- les **OT préventifs en retard** (échéance dépassée, OT ni terminé ni annulé).
+
+Les mêmes alertes sont exposées par l'API (`/api/analytics/alerts`) avec un
+seuil et une limite paramétrables. La page **Ordres de travail** ne liste plus
+que les OT préventifs (les interventions correctives gardent leur page dédiée)
+et propose un filtre « En retard uniquement ».
+
+### 7.6 Migration
+
+La migration `0008_movement_costs` ajoute `stock_movements.unit_cost`, puis
+initialise les mouvements existants avec le coût unitaire courant de leur
+pièce. Les mouvements suivants capturent la valeur au moment de la saisie.
+
 ---
 
 ## 8. API REST
@@ -415,6 +458,9 @@ une base réellement migrée et non seulement sur un schéma issu de
 | `POST` | `/api/interventions/{id}/parts` | Demander une pièce de rechange |
 | `POST` | `/api/interventions/{id}/parts/{part_id}/use` | Consommer la pièce (sortie de stock) |
 | `POST` | `/api/interventions/{id}/parts/{part_id}/cancel` | Annuler une demande de pièce en attente |
+| `GET` | `/api/analytics/kpis` | MTBF, MTTR, disponibilité et coûts par équipement (`days`, `site_id`) |
+| `GET` | `/api/analytics/costs` | Détail des coûts de pièces par ordre de travail |
+| `GET` | `/api/analytics/alerts` | Demandes non affectées et OT préventifs en retard (`threshold_days`, `limit`) |
 
 L'interface web exige une **connexion** (cookie de session signé, valable
 7 jours). L'API reste utilisable sans session en identifiant l'utilisateur par
@@ -437,13 +483,14 @@ gmao-app/
 │       ├── 0004_work_orders_users_auth.py
 │       ├── 0005_inventory_tools.py
 │       ├── 0006_corrective_maintenance.py
-│       └── 0007_work_order_timestamps.py
+│       ├── 0007_work_order_timestamps.py
+│       └── 0008_movement_costs.py
 ├── app/
 │   ├── api/                  routes REST JSON (/api)
 │   ├── models/               modèles SQLAlchemy (18 tables)
 │   ├── repositories/         accès aux données (CTE récursive, pagination)
 │   ├── schemas/              contrats Pydantic (entrées / sorties)
-│   ├── services/             règles métier (backdating, périodicité, stock, étalonnage, corrective)
+│   ├── services/             règles métier (backdating, périodicité, stock, étalonnage, corrective, analyse)
 │   ├── web/                  interface Jinja2 + HTMX
 │   │   ├── templates/        pages et partials
 │   │   └── static/           css, js, Bootstrap & HTMX vendorisés (hors ligne)
@@ -455,7 +502,7 @@ gmao-app/
 │   └── entrypoint.sh         migrations + seed optionnel + uvicorn
 ├── scripts/seed.py           jeu de démonstration
 ├── scripts/backup.py         sauvegarde à chaud de la base SQLite
-├── tests/                    146 tests pytest
+├── tests/                    156 tests pytest
 ├── Dockerfile                image de production (un seul conteneur)
 ├── docker-compose.yml        service unique + volume de données
 └── requirements.txt          dépendances de production
@@ -510,6 +557,7 @@ figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
 | `tests/test_periodic_maintenance.py` | fournisseurs, règles de famille, échéancier calendaire et en heures, réalisations |
 | `tests/test_inventory.py` | mouvements de stock append-only, seuils, suppression protégée, étalonnages calendaires, blocage des prêts, API et formulaires web |
 | `tests/test_corrective_maintenance.py` | demande par tout utilisateur, affectation par le responsable, saisie des horaires et du compte rendu, pièces demandées puis consommées, stock insuffisant, annulation, API et pages web |
+| `tests/test_analytics.py` | MTBF/MTTR/disponibilité, coût figé et repli sur le prix courant, pannes récurrentes, alertes, API et page d'analyse |
 
 ---
 
@@ -517,16 +565,18 @@ figée (`GMAO_TODAY=2026-06-15`) : les tests sont déterministes.
 
 Le socle fonctionnel couvre désormais le référentiel, l'échéancier, les
 ordres de travail, les utilisateurs, l'inventaire des pièces, les fiches
-d'utilisation des équipements de maintenance et la maintenance corrective.
+d'utilisation des équipements de maintenance, la maintenance corrective et
+l'analyse de fiabilité / coûts.
 
 Pistes d'évolution :
 
 - réserver un outil pour un OT et alerter lorsqu'un prêt dépasse la durée
   prévue ;
-- calculer le MTBF / MTTR à partir des historiques d'intervention ;
 - proposer des campagnes d'étalonnage groupées par organisme et par échéance ;
-- ajouter des exports (CSV / PDF) des fiches d'utilisation et des mouvements de
-  stock.
+- ajouter des exports (CSV / PDF) des fiches d'utilisation, des mouvements de
+  stock et des indicateurs de maintenance ;
+- suivre la main-d'œuvre (taux horaire par technicien) pour compléter le coût
+  des pièces par un coût complet d'intervention.
 
 ---
 
@@ -640,3 +690,7 @@ docker compose down -v   # supprime AUSSI la base : à manier avec prudence
   fin avec compte rendu, demande puis consommation des pièces détachées avec
   sortie de stock rattachée à l'OT (migrations `0006_corrective_maintenance` et
   `0007_work_order_timestamps`).
+- **v0.5** — analyse de maintenance : MTBF, MTTR et disponibilité par
+  équipement, coût des pièces figé au moment du mouvement, détection des pannes
+  récurrentes, page `/analytics`, API dédiée et alertes d'exploitation sur le
+  tableau de bord (migration `0008_movement_costs`).

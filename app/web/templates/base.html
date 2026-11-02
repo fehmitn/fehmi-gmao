@@ -32,6 +32,7 @@
       <a class="nav-link {% if page_title == 'Échéancier de maintenance' %}active{% endif %}" href="/maintenance-schedule">Échéancier</a>
       <a class="nav-link {% if page_title == "Ordres de travail" %}active{% endif %}" href="/work-orders">Ordres de travail</a>
       <a class="nav-link {% if page_title == 'Maintenance corrective' or page_title.startswith('Intervention') or page_title == "Nouvelle demande d'intervention" %}active{% endif %}" href="/interventions">Interventions</a>
+      <a class="nav-link {% if page_title == 'Analyse de maintenance' %}active{% endif %}" href="/analytics">Analyse</a>
       <a class="nav-link {% if page_title == "Journal d'audit" %}active{% endif %}" href="/audit">Journal d'audit</a>
       {% if current_user and current_user.role == 'admin' %}
       <a class="nav-link {% if page_title == "Gestion des utilisateurs" %}active{% endif %}" href="/users">Utilisateurs</a>

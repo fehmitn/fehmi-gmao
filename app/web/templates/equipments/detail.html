@@ -12,11 +12,16 @@
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>{{ equipment.code }} — {{ equipment.name }}</span>
-        {% if equipment.criticality %}
-        <span class="badge {% if equipment.criticality == 'A' %}text-bg-danger{% elif equipment.criticality == 'B' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
-          criticité {{ equipment.criticality }}
-        </span>
-        {% endif %}
+        <div class="d-flex gap-2 flex-wrap">
+          {% if analytics and analytics.recurrent %}
+          <span class="badge text-bg-danger">{{ analytics.recurrent_label }}</span>
+          {% endif %}
+          {% if equipment.criticality %}
+          <span class="badge {% if equipment.criticality == 'A' %}text-bg-danger{% elif equipment.criticality == 'B' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+            criticité {{ equipment.criticality }}
+          </span>
+          {% endif %}
+        </div>
       </div>
       <div class="card-body">
         <dl class="row mb-0">
@@ -68,6 +73,28 @@
           </dd>
         </dl>
       </div>
+      {% if analytics %}
+      <div class="card-footer bg-body-tertiary">
+        <div class="row text-center g-2">
+          <div class="col-6 col-lg-3">
+            <div class="text-muted small">Pannes (12 mois)</div>
+            <div class="fw-bold">{{ analytics.failure_count_12m }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="text-muted small">MTTR</div>
+            <div class="fw-bold">{{ analytics.mttr_label }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="text-muted small">MTBF</div>
+            <div class="fw-bold">{{ analytics.mtbf_label }}</div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="text-muted small">Coût pièces</div>
+            <div class="fw-bold">{{ analytics.parts_cost_label }} €</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     <div class="card">

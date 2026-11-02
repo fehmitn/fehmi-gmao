@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api import (
+    analytics_router,
     audit_router,
     equipment_router,
     equipment_types_router,
@@ -52,7 +53,7 @@ app = FastAPI(
         "La saisie d'opérations datées dans le passé est autorisée, mais encadrée : "
         "motif de dérogation obligatoire, retard mesuré, journalisation."
     ),
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -89,6 +90,7 @@ async def require_web_login(request: Request, call_next):
 
 
 # API REST
+app.include_router(analytics_router)
 app.include_router(sites_router)
 app.include_router(locations_router)
 app.include_router(equipment_types_router)
