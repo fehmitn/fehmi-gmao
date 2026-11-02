@@ -1,0 +1,48 @@
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<div class="card">
+  <div class="card-header">Fournisseurs de maintenance</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th>Code</th><th>Raison sociale</th><th>Contact</th><th>Spécialité</th>
+        <th class="text-end">Opérations</th><th>État</th><th class="text-end">Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for supplier in suppliers %}
+        <tr>
+          <td class="fw-semibold">{{ supplier.code }}</td>
+          <td>
+            {{ supplier.name }}
+            {% if supplier.email or supplier.phone %}
+            <div class="small text-muted">
+              {{ supplier.phone or '' }}{% if supplier.phone and supplier.email %} · {% endif %}{{ supplier.email or '' }}
+            </div>
+            {% endif %}
+          </td>
+          <td>{{ supplier.contact_name or '—' }}</td>
+          <td>{{ supplier.specialty or '—' }}</td>
+          <td class="text-end">{{ supplier.periodic_maintenance_count }}</td>
+          <td>
+            {% if supplier.is_active %}
+            <span class="badge text-bg-success">actif</span>
+            {% else %}
+            <span class="badge text-bg-secondary">inactif</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/maintenance-suppliers/{{ supplier.id }}/edit">Modifier</a>
+            <form class="d-inline" method="post" action="/maintenance-suppliers/{{ supplier.id }}/delete"
+                  onsubmit="return confirm('Supprimer ce fournisseur ?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="text-muted">Aucun fournisseur enregistré.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Nouveau fournisseur de maintenance</div>
+      <div class="card-body">
+        <form hx-post="/maintenance-suppliers" hx-target="#supplier-region" hx-swap="innerHTML">
+          <div class="mb-2">
+            <label class="form-label" for="sup-code">Code *</label>
+            <input class="form-control" id="sup-code" name="code" placeholder="SUP-HYDRO" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="sup-name">Raison sociale *</label>
+            <input class="form-control" id="sup-name" name="name" placeholder="Hydro Prestations" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="sup-contact">Contact</label>
+            <input class="form-control" id="sup-contact" name="contact_name">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="sup-phone">Téléphone</label>
+            <input class="form-control" id="sup-phone" name="phone">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="sup-email">Email</label>
+            <input class="form-control" id="sup-email" name="email" type="email">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="sup-specialty">Spécialité</label>
+            <input class="form-control" id="sup-specialty" name="specialty"
+                   placeholder="Hydraulique, électricité, froid…">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="sup-notes">Notes</label>
+            <textarea class="form-control" id="sup-notes" name="notes" rows="2"></textarea>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="sup-active" name="is_active" value="1" checked>
+            <label class="form-check-label" for="sup-active">Fournisseur actif</label>
+          </div>
+          <button class="btn btn-primary" type="submit">Créer le fournisseur</button>
+        </form>
+        <p class="small text-muted mt-3 mb-0">
+          Le fournisseur est saisi une seule fois puis rattaché aux opérations
+          de maintenance périodique des familles d'équipements.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div id="supplier-region">
+      {% include "partials/maintenance_suppliers_table.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

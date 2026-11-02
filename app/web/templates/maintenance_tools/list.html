@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-primary" href="/maintenance-tools/new">Nouvel équipement de maintenance</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Fiches actives</div>
+      <div class="fs-3 fw-bold">{{ summary.total }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Utilisés</div>
+      <div class="fs-3 fw-bold text-info">{{ summary.in_use }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100 border-warning-subtle"><div class="card-body">
+      <div class="text-muted small">À étalonner ≤ 30 j</div>
+      <div class="fs-3 fw-bold text-warning">{{ summary.due_soon }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">Étalonnage en retard</div>
+      <div class="fs-3 fw-bold text-danger">{{ summary.overdue }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Jamais étalonnés</div>
+      <div class="fs-3 fw-bold">{{ summary.missing }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Hors service</div>
+      <div class="fs-3 fw-bold text-danger">{{ summary.out_of_service }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Filtres</div>
+  <div class="card-body">
+    <form method="get" action="/maintenance-tools" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" for="tool-search">Recherche</label>
+        <input class="form-control" id="tool-search" name="search" value="{{ filters.search }}"
+               placeholder="Code, désignation, n° de série…">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="tool-category">Catégorie</label>
+        <select class="form-select" id="tool-category" name="category">
+          <option value="">Toutes</option>
+          {% for category in categories %}
+          <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="tool-status">Disponibilité</label>
+        <select class="form-select" id="tool-status" name="status">
+          <option value="">Toutes</option>
+          {% for status in statuses %}
+          <option value="{{ status.value }}" {% if filters.status == status.value %}selected{% endif %}>{{ status.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="tool-calibration">Étalonnage</label>
+        <select class="form-select" id="tool-calibration" name="calibration_status">
+          <option value="">Tous</option>
+          {% for calibration_status in calibration_statuses %}
+          <option value="{{ calibration_status.value }}" {% if filters.calibration_status == calibration_status.value %}selected{% endif %}>{{ calibration_status.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary" href="/maintenance-tools">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Fiches d'utilisation des équipements de maintenance</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Équipement</th>
+          <th>Disponibilité</th>
+          <th>Contrainte d'étalonnage</th>
+          <th>Prochaine échéance</th>
+          <th>Emplacement</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tool in tools %}
+        <tr>
+          <td class="fw-semibold"><a href="/maintenance-tools/{{ tool.id }}">{{ tool.code }}</a></td>
+          <td>
+            {{ tool.name }}
+            <div class="small text-muted">
+              {{ tool.category or 'Sans catégorie' }}
+              {% if tool.serial_number %} · N° {{ tool.serial_number }}{% endif %}
+            </div>
+          </td>
+          <td><span class="badge {{ tool.status_css }}">{{ tool.status_label }}</span></td>
+          <td>
+            <span class="badge {{ tool.calibration_status_css }}">{{ tool.calibration_status_label }}</span>
+            {% if tool.calibration_periodicity_label %}
+            <div class="small text-muted">{{ tool.calibration_periodicity_label }}</div>
+            {% endif %}
+          </td>
+          <td class="text-nowrap">
+            {% if tool.next_calibration_date %}
+            {{ tool.next_calibration_date.strftime('%d/%m/%Y') }}
+            {% if tool.calibration_days_remaining is not none %}
+            <div class="small {% if tool.calibration_days_remaining < 0 %}text-danger{% elif tool.calibration_days_remaining <= 30 %}text-warning{% else %}text-muted{% endif %}">
+              {% if tool.calibration_days_remaining < 0 %}
+              retard de {{ -tool.calibration_days_remaining }} j
+              {% elif tool.calibration_days_remaining == 0 %}
+              aujourd'hui
+              {% else %}
+              dans {{ tool.calibration_days_remaining }} j
+              {% endif %}
+            </div>
+            {% endif %}
+            {% elif tool.requires_calibration %}
+            <span class="text-warning">À planifier</span>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>
+            {{ tool.storage_location or '—' }}
+            {% if tool.site_code %}<div class="small text-muted">{{ tool.site_code }}</div>{% endif %}
+          </td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <a class="btn btn-sm btn-outline-primary" href="/maintenance-tools/{{ tool.id }}">Fiche</a>
+              <a class="btn btn-sm btn-outline-secondary" href="/maintenance-tools/{{ tool.id }}/edit">Modifier</a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Aucun équipement ne correspond aux filtres.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

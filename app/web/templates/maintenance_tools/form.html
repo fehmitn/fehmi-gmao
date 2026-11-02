@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="{% if tool %}/maintenance-tools/{{ tool.id }}{% else %}/maintenance-tools{% endif %}">Retour</a>
+{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        {% if tool %}Modifier {{ tool.code }}{% else %}Nouvel équipement de maintenance{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% if tool %}/maintenance-tools/{{ tool.id }}/update{% else %}/maintenance-tools{% endif %}">
+          <h2 class="h6 text-uppercase text-muted">Identification</h2>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label" for="tool-code">Code *</label>
+              <input class="form-control" id="tool-code" name="code" required
+                     value="{{ tool.code if tool else '' }}" placeholder="OUT-PIED-01">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="tool-name">Désignation *</label>
+              <input class="form-control" id="tool-name" name="name" required
+                     value="{{ tool.name if tool else '' }}" placeholder="Pied à coulisse numérique">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="tool-category">Catégorie</label>
+              <input class="form-control" id="tool-category" name="category"
+                     value="{{ tool.category if tool and tool.category else 'Instrument de mesure' }}"
+                     placeholder="Instrument de mesure, outillage, sécurité…">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-manufacturer">Fabricant</label>
+              <input class="form-control" id="tool-manufacturer" name="manufacturer"
+                     value="{{ tool.manufacturer if tool and tool.manufacturer else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-model">Modèle</label>
+              <input class="form-control" id="tool-model" name="model"
+                     value="{{ tool.model if tool and tool.model else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="tool-serial">N° de série</label>
+              <input class="form-control" id="tool-serial" name="serial_number"
+                     value="{{ tool.serial_number if tool and tool.serial_number else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="tool-site">Usine / magasin</label>
+              <select class="form-select" id="tool-site" name="site_id">
+                <option value="">— aucun —</option>
+                {% for site in sites %}
+                <option value="{{ site.id }}" {% if tool and tool.site_id == site.id %}selected{% endif %}>{{ site.code }} — {{ site.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="tool-storage">Emplacement de stockage</label>
+              <input class="form-control" id="tool-storage" name="storage_location"
+                     value="{{ tool.storage_location if tool and tool.storage_location else '' }}"
+                     placeholder="Armoire métrologie, atelier…">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="tool-purchase">Date d'achat</label>
+              <input class="form-control" id="tool-purchase" name="purchase_date" type="date"
+                     value="{{ tool.purchase_date.isoformat() if tool and tool.purchase_date else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="tool-commissioning">Mise en service</label>
+              <input class="form-control" id="tool-commissioning" name="commissioning_date" type="date"
+                     value="{{ tool.commissioning_date.isoformat() if tool and tool.commissioning_date else '' }}">
+            </div>
+            {% if not tool %}
+            <div class="col-md-4">
+              <label class="form-label" for="tool-status">Disponibilité initiale</label>
+              <select class="form-select" id="tool-status" name="status">
+                {% for status in statuses %}
+                {% if status.value != 'in_use' %}
+                <option value="{{ status.value }}" {% if status.value == 'available' %}selected{% endif %}>{{ status.label }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+          </div>
+
+          <h2 class="h6 text-uppercase text-muted">Contrainte légale d'étalonnage</h2>
+          <div class="row g-3 mb-4">
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="tool-requires" name="requires_calibration" value="1"
+                       {% if not tool or tool.requires_calibration %}checked{% endif %}>
+                <label class="form-check-label" for="tool-requires">
+                  Équipement soumis à étalonnage / vérification périodique
+                </label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-interval">Périodicité</label>
+              <input class="form-control" id="tool-interval" name="calibration_interval_value" type="number" min="1"
+                     value="{{ tool.calibration_interval_value if tool and tool.calibration_interval_value else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-interval-unit">Unité</label>
+              <select class="form-select" id="tool-interval-unit" name="calibration_interval_unit">
+                {% for unit in interval_units %}
+                <option value="{{ unit.value }}"
+                        {% if tool and tool.calibration_interval_unit == unit.value %}selected{% elif not tool and unit.value == 'months' %}selected{% endif %}>
+                  {{ unit.label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-last-cal">Dernier étalonnage</label>
+              <input class="form-control" id="tool-last-cal" name="last_calibration_date" type="date"
+                     max="{{ app_today().isoformat() }}"
+                     value="{{ tool.last_calibration_date.isoformat() if tool and tool.last_calibration_date else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="tool-next-cal">Prochaine échéance</label>
+              <input class="form-control" id="tool-next-cal" name="next_calibration_date" type="date"
+                     value="{{ tool.next_calibration_date.isoformat() if tool and tool.next_calibration_date else '' }}">
+              <div class="form-text">Vide = calcul automatique.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="tool-provider">Organisme / prestataire d'étalonnage</label>
+              <select class="form-select" id="tool-provider" name="calibration_provider_id">
+                <option value="">— aucun —</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}" {% if tool and tool.calibration_provider_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="tool-legal">Référence légale / normative</label>
+              <input class="form-control" id="tool-legal" name="legal_reference"
+                     value="{{ tool.legal_reference if tool and tool.legal_reference else '' }}"
+                     placeholder="Ex. ISO 9001, décret, procédure interne…">
+            </div>
+          </div>
+
+          <h2 class="h6 text-uppercase text-muted">Notes</h2>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label" for="tool-description">Description</label>
+              <textarea class="form-control" id="tool-description" name="description" rows="2">{{ tool.description if tool and tool.description else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="tool-notes">Notes d'utilisation</label>
+              <textarea class="form-control" id="tool-notes" name="notes" rows="2">{{ tool.notes if tool and tool.notes else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="tool-active" name="is_active" value="1"
+                       {% if not tool or tool.is_active %}checked{% endif %}>
+                <label class="form-check-label" for="tool-active">Fiche active</label>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit">
+            {% if tool %}Enregistrer{% else %}Créer la fiche d'utilisation{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="alert alert-info">
+      <strong>Fiche d'utilisation.</strong>
+      Chaque moyen de contrôle possède sa propre fiche : identité, contrainte
+      légale d'étalonnage, historique des étalonnages et prêts liés aux ordres
+      de travail. L'utilisation est bloquée si l'étalonnage est manquant ou en
+      retard.
+    </div>
+    {% if tool and tool.calibrations %}
+    <div class="alert alert-secondary">
+      <strong>{{ tool.calibrations|length }}</strong> étalonnage(s) enregistré(s).
+      Les dates du dernier et du prochain étalonnage sont mises à jour
+      automatiquement depuis l'historique.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

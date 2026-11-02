@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap">
+  <a class="btn btn-outline-secondary" href="/spare-parts">Retour au catalogue</a>
+  <a class="btn btn-outline-primary" href="/spare-parts/{{ part.id }}/edit">Modifier la fiche</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Stock courant</div>
+      <div class="fs-3 fw-bold">{{ part.quantity|qty }} <span class="fs-6">{{ part.unit }}</span></div>
+      <span class="badge {{ part.stock_status_css }}">{{ part.stock_status_label }}</span>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Seuil minimum</div>
+      <div class="fs-3 fw-bold">{{ part.min_quantity|qty }} <span class="fs-6">{{ part.unit }}</span></div>
+      {% if part.max_quantity is not none %}<div class="small text-muted">Maximum : {{ part.max_quantity|qty }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Valeur du stock</div>
+      <div class="fs-3 fw-bold">{{ part.stock_value|money }} €</div>
+      <div class="small text-muted">Coût unitaire : {{ part.unit_cost|money }} €</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Mouvements</div>
+      <div class="fs-3 fw-bold">{{ part.movement_count }}</div>
+      <div class="small text-muted">historique append-only</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header">Identification</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Code</dt><dd class="col-sm-7 fw-semibold">{{ part.code }}</dd>
+          <dt class="col-sm-5">Désignation</dt><dd class="col-sm-7">{{ part.name }}</dd>
+          <dt class="col-sm-5">Catégorie</dt><dd class="col-sm-7">{{ part.category or '—' }}</dd>
+          <dt class="col-sm-5">Fabricant</dt><dd class="col-sm-7">{{ part.manufacturer or '—' }}</dd>
+          <dt class="col-sm-5">Référence</dt><dd class="col-sm-7">{{ part.manufacturer_reference or '—' }}</dd>
+          <dt class="col-sm-5">Fournisseur</dt><dd class="col-sm-7">{{ part.supplier_name or '—' }}</dd>
+          <dt class="col-sm-5">Usine</dt><dd class="col-sm-7">{{ part.site_code or '—' }}</dd>
+          <dt class="col-sm-5">Stockage</dt><dd class="col-sm-7">{{ part.storage_location or '—' }}</dd>
+          <dt class="col-sm-5">État</dt>
+          <dd class="col-sm-7">
+            {% if part.is_active %}<span class="badge text-bg-success">Active</span>
+            {% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+          </dd>
+        </dl>
+        {% if part.description %}
+        <hr>
+        <div class="small text-muted">Description</div>
+        <p class="mb-0">{{ part.description }}</p>
+        {% endif %}
+        {% if part.notes %}
+        <hr>
+        <div class="small text-muted">Notes</div>
+        <p class="mb-0">{{ part.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">Enregistrer un mouvement de stock</div>
+      <div class="card-body">
+        <form method="post" action="/spare-parts/{{ part.id }}/movements">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="mv-type">Type *</label>
+              <select class="form-select" id="mv-type" name="movement_type" required>
+                {% for movement_type in movement_types %}
+                <option value="{{ movement_type.value }}">{{ movement_type.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="mv-quantity">Quantité *</label>
+              <input class="form-control" id="mv-quantity" name="quantity" inputmode="decimal" required>
+              <div class="form-text">
+                Entrée/sortie : quantité du mouvement. Inventaire : quantité
+                réellement comptée (le stock sera aligné sur cette valeur).
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="mv-date">Date</label>
+              <input class="form-control" id="mv-date" name="movement_date" type="date"
+                     max="{{ app_today().isoformat() }}" value="{{ app_today().isoformat() }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="mv-work-order">Ordre de travail</label>
+              <select class="form-select" id="mv-work-order" name="work_order_id">
+                <option value="">— aucun —</option>
+                {% for wo in work_orders %}
+                <option value="{{ wo.id }}">{{ wo.code }} — {{ wo.equipment_code or '' }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="mv-reference">Référence / document</label>
+              <input class="form-control" id="mv-reference" name="reference" placeholder="Bon de commande, bon de sortie…">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="mv-notes">Motif / notes</label>
+              <textarea class="form-control" id="mv-notes" name="notes" rows="2"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit">Enregistrer le mouvement</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-danger-subtle">
+      <div class="card-header text-danger">Suppression</div>
+      <div class="card-body">
+        {% if part.movement_count %}
+        <p class="mb-0 text-muted">
+          La pièce possède un historique de stock : la suppression est refusée.
+          Désactivez-la depuis sa fiche pour la retirer des alertes.
+        </p>
+        {% else %}
+        <form method="post" action="/spare-parts/{{ part.id }}/delete"
+              onsubmit="return confirm('Supprimer définitivement la pièce {{ part.code }} ?');">
+          <button class="btn btn-outline-danger" type="submit">Supprimer la pièce</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Historique des mouvements</div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th class="text-end">Variation</th>
+              <th class="text-end">Stock après</th>
+              <th>Référence / OT</th>
+              <th>Par</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movement in movements %}
+            <tr>
+              <td class="text-nowrap">{{ movement.movement_date.strftime('%d/%m/%Y') }}</td>
+              <td><span class="badge {{ movement.movement_type_css }}">{{ movement.movement_type_label }}</span></td>
+              <td class="text-end fw-semibold">{{ movement.delta_label }} {{ part.unit }}</td>
+              <td class="text-end">{{ movement.resulting_quantity|qty }} {{ part.unit }}</td>
+              <td>
+                {{ movement.reference or '—' }}
+                {% if movement.work_order_code %}
+                <div class="small"><a href="/work-orders">{{ movement.work_order_code }}</a></div>
+                {% endif %}
+              </td>
+              <td>
+                {{ movement.actor_name or 'système' }}
+                {% if movement.notes %}<div class="small text-muted">{{ movement.notes }}</div>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Aucun mouvement enregistré.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="small text-muted mt-2 mb-0">
+      Les mouvements sont conservés en append-only : une erreur de saisie se
+      corrige par un mouvement inverse, jamais par modification ou suppression.
+    </p>
+  </div>
+</div>
+{% endblock %}

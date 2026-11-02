@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
@@ -10,6 +12,37 @@ from app.services.clock import today
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["app_today"] = today
+
+
+def _as_decimal(value) -> Decimal | None:
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def format_quantity(value) -> str:
+    """Affiche une quantité sans zéros inutiles, avec la virgule française."""
+    number = _as_decimal(value)
+    if number is None:
+        return "—"
+    text = f"{number.normalize():f}"
+    return text.replace(".", ",")
+
+
+def format_money(value) -> str:
+    """Affiche un montant avec deux décimales et séparateurs français."""
+    number = _as_decimal(value)
+    if number is None:
+        return "—"
+    text = f"{number:,.2f}"
+    return text.replace(",", " ").replace(".", ",")
+
+
+templates.env.filters["qty"] = format_quantity
+templates.env.filters["money"] = format_money
 
 
 def render(

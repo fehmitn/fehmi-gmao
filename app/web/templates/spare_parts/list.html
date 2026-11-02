@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-primary" href="/spare-parts/new">Nouvelle pièce</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Références actives</div>
+      <div class="fs-3 fw-bold">{{ summary.total }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100 border-warning-subtle"><div class="card-body">
+      <div class="text-muted small">Sous le seuil</div>
+      <div class="fs-3 fw-bold text-warning">{{ summary.low_stock }}</div>
+      <a class="small" href="/spare-parts?low_stock=1">Voir les alertes</a>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100 border-danger-subtle"><div class="card-body">
+      <div class="text-muted small">En rupture</div>
+      <div class="fs-3 fw-bold text-danger">{{ summary.out_of_stock }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Valeur du stock</div>
+      <div class="fs-3 fw-bold">{{ summary.stock_value|money }} €</div>
+      <div class="small text-muted">pièces actives valorisées</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Filtres</div>
+  <div class="card-body">
+    <form method="get" action="/spare-parts" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" for="sp-search">Recherche</label>
+        <input class="form-control" id="sp-search" name="search" value="{{ filters.search }}"
+               placeholder="Code, désignation, référence fabricant...">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="sp-category">Catégorie</label>
+        <select class="form-select" id="sp-category" name="category">
+          <option value="">Toutes</option>
+          {% for category in categories %}
+          <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="sp-low" name="low_stock" value="1"
+                 {% if filters.low_stock %}checked{% endif %}>
+          <label class="form-check-label" for="sp-low">Uniquement sous le seuil</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="sp-active" name="active_only" value="1"
+                 {% if filters.active_only %}checked{% endif %}>
+          <label class="form-check-label" for="sp-active">Uniquement les pièces actives</label>
+        </div>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-outline-primary" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary" href="/spare-parts">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Catalogue des pièces de rechange</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Désignation</th>
+          <th>Stock</th>
+          <th>Seuil</th>
+          <th>Emplacement</th>
+          <th>Fournisseur</th>
+          <th class="text-end">Valeur</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for part in parts %}
+        <tr class="{% if part.is_low_stock %}table-warning{% endif %}">
+          <td class="fw-semibold"><a href="/spare-parts/{{ part.id }}">{{ part.code }}</a></td>
+          <td>
+            {{ part.name }}
+            <div class="small text-muted">
+              {{ part.category or 'Sans catégorie' }}
+              {% if part.manufacturer_reference %} · Réf. {{ part.manufacturer_reference }}{% endif %}
+            </div>
+          </td>
+          <td class="text-nowrap">
+            <span class="badge {{ part.stock_status_css }}">{{ part.stock_status_label }}</span>
+            <div class="small">{{ part.quantity|qty }} {{ part.unit }}</div>
+          </td>
+          <td class="text-nowrap">{{ part.min_quantity|qty }} {{ part.unit }}</td>
+          <td>
+            {{ part.storage_location or '—' }}
+            {% if part.site_code %}<div class="small text-muted">{{ part.site_code }}</div>{% endif %}
+          </td>
+          <td>{{ part.supplier_name or '—' }}</td>
+          <td class="text-end text-nowrap">{{ part.stock_value|money }} €</td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <a class="btn btn-sm btn-outline-primary" href="/spare-parts/{{ part.id }}">Fiche</a>
+              <a class="btn btn-sm btn-outline-secondary" href="/spare-parts/{{ part.id }}/edit">Modifier</a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Aucune pièce ne correspond aux filtres.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

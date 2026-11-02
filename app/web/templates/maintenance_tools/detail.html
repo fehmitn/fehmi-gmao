@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block actions %}
+<div class="d-flex gap-2 flex-wrap">
+  <a class="btn btn-outline-secondary" href="/maintenance-tools">Retour</a>
+  <a class="btn btn-outline-primary" href="/maintenance-tools/{{ tool.id }}/edit">Modifier la fiche</a>
+  <button class="btn btn-outline-secondary" type="button" onclick="window.print()">Imprimer</button>
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Disponibilité</div>
+      <div class="fs-5 fw-bold"><span class="badge {{ tool.status_css }}">{{ tool.status_label }}</span></div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Contrainte d'étalonnage</div>
+      <div class="fs-5 fw-bold"><span class="badge {{ tool.calibration_status_css }}">{{ tool.calibration_status_label }}</span></div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Dernier étalonnage</div>
+      <div class="fs-4 fw-bold">
+        {{ tool.last_calibration_date.strftime('%d/%m/%Y') if tool.last_calibration_date else '—' }}
+      </div>
+      <div class="small text-muted">{{ tool.calibration_periodicity_label or 'Périodicité non définie' }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small">Prochaine échéance</div>
+      <div class="fs-4 fw-bold">
+        {{ tool.next_calibration_date.strftime('%d/%m/%Y') if tool.next_calibration_date else '—' }}
+      </div>
+      {% if tool.calibration_days_remaining is not none %}
+      <div class="small {% if tool.calibration_days_remaining < 0 %}text-danger{% elif tool.calibration_days_remaining <= 30 %}text-warning{% else %}text-muted{% endif %}">
+        {% if tool.calibration_days_remaining < 0 %}
+        retard de {{ -tool.calibration_days_remaining }} jour(s)
+        {% elif tool.calibration_days_remaining == 0 %}
+        échéance aujourd'hui
+        {% else %}
+        dans {{ tool.calibration_days_remaining }} jour(s)
+        {% endif %}
+      </div>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+{% if tool.checkout_block_reason %}
+<div class="alert alert-danger">
+  <strong>Utilisation bloquée :</strong> {{ tool.checkout_block_reason }}
+  {% if tool.calibration_status.value == 'overdue' %}
+  Enregistrez un nouvel étalonnage conforme avant tout nouveau prêt.
+  {% elif tool.calibration_status.value == 'missing' %}
+  Renseignez un premier étalonnage avant tout nouveau prêt.
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-header">Fiche d'utilisation — identification</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Code</dt><dd class="col-sm-8 fw-semibold">{{ tool.code }}</dd>
+          <dt class="col-sm-4">Désignation</dt><dd class="col-sm-8">{{ tool.name }}</dd>
+          <dt class="col-sm-4">Catégorie</dt><dd class="col-sm-8">{{ tool.category or '—' }}</dd>
+          <dt class="col-sm-4">Fabricant / modèle</dt>
+          <dd class="col-sm-8">{{ tool.manufacturer or '—' }}{% if tool.model %} · {{ tool.model }}{% endif %}</dd>
+          <dt class="col-sm-4">N° de série</dt><dd class="col-sm-8">{{ tool.serial_number or '—' }}</dd>
+          <dt class="col-sm-4">Usine</dt><dd class="col-sm-8">{{ tool.site_code or '—' }}</dd>
+          <dt class="col-sm-4">Stockage</dt><dd class="col-sm-8">{{ tool.storage_location or '—' }}</dd>
+          <dt class="col-sm-4">Date d'achat</dt>
+          <dd class="col-sm-8">{{ tool.purchase_date.strftime('%d/%m/%Y') if tool.purchase_date else '—' }}</dd>
+          <dt class="col-sm-4">Mise en service</dt>
+          <dd class="col-sm-8">{{ tool.commissioning_date.strftime('%d/%m/%Y') if tool.commissioning_date else '—' }}</dd>
+          <dt class="col-sm-4">Fiche</dt>
+          <dd class="col-sm-8">
+            {% if tool.is_active %}<span class="badge text-bg-success">Active</span>
+            {% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+          </dd>
+        </dl>
+        {% if tool.description %}
+        <hr>
+        <div class="small text-muted">Description</div>
+        <p class="mb-0">{{ tool.description }}</p>
+        {% endif %}
+        {% if tool.notes %}
+        <hr>
+        <div class="small text-muted">Notes d'utilisation</div>
+        <p class="mb-0">{{ tool.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">Contrainte légale et métrologique</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Soumis à étalonnage</dt>
+          <dd class="col-sm-8">{% if tool.requires_calibration %}Oui{% else %}Non{% endif %}</dd>
+          <dt class="col-sm-4">Périodicité</dt>
+          <dd class="col-sm-8">{{ tool.calibration_periodicity_label or '—' }}</dd>
+          <dt class="col-sm-4">Référence légale</dt>
+          <dd class="col-sm-8">{{ tool.legal_reference or '—' }}</dd>
+          <dt class="col-sm-4">Organisme</dt>
+          <dd class="col-sm-8">{{ tool.provider_name or '—' }}</dd>
+          <dt class="col-sm-4">État de la contrainte</dt>
+          <dd class="col-sm-8"><span class="badge {{ tool.calibration_status_css }}">{{ tool.calibration_status_label }}</span></dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">Registre des étalonnages</div>
+      <div class="card-body">
+        <form method="post" action="/maintenance-tools/{{ tool.id }}/calibrations" class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="cal-date">Date d'étalonnage *</label>
+            <input class="form-control" id="cal-date" name="calibrated_on" type="date" required
+                   max="{{ app_today().isoformat() }}" value="{{ app_today().isoformat() }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="cal-result">Résultat *</label>
+            <select class="form-select" id="cal-result" name="result" required>
+              {% for result in calibration_results %}
+              <option value="{{ result.value }}">{{ result.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="cal-next">Prochaine échéance</label>
+            <input class="form-control" id="cal-next" name="next_due_date" type="date">
+            <div class="form-text">Vide = calcul automatique.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="cal-provider">Organisme</label>
+            <select class="form-select" id="cal-provider" name="provider_id">
+              <option value="">— aucun —</option>
+              {% for supplier in suppliers %}
+              <option value="{{ supplier.id }}" {% if tool.calibration_provider_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="cal-certificate">Certificat</label>
+            <input class="form-control" id="cal-certificate" name="certificate_number">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="cal-cost">Coût (€)</label>
+            <input class="form-control" id="cal-cost" name="cost" inputmode="decimal">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="cal-notes">Observations</label>
+            <textarea class="form-control" id="cal-notes" name="notes" rows="2"></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Enregistrer l'étalonnage</button>
+          </div>
+        </form>
+      </div>
+      <div class="table-responsive border-top">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Résultat</th>
+              <th>Échéance suivante</th>
+              <th>Organisme</th>
+              <th>Certificat</th>
+              <th class="text-end">Coût</th>
+              <th>Par</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for calibration in calibrations %}
+            <tr>
+              <td class="text-nowrap">{{ calibration.calibrated_on.strftime('%d/%m/%Y') }}</td>
+              <td><span class="badge {{ calibration.result_css }}">{{ calibration.result_label }}</span></td>
+              <td class="text-nowrap">{{ calibration.next_due_date.strftime('%d/%m/%Y') if calibration.next_due_date else '—' }}</td>
+              <td>{{ calibration.provider_name or '—' }}</td>
+              <td>{{ calibration.certificate_number or '—' }}</td>
+              <td class="text-end">{{ calibration.cost|money }} €</td>
+              <td>
+                {{ calibration.actor_name or 'système' }}
+                {% if calibration.notes %}<div class="small text-muted">{{ calibration.notes }}</div>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-3">Aucun étalonnage enregistré.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer small text-muted">
+        Un étalonnage non conforme place automatiquement l'outil hors service.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-4">
+      <div class="card-header">Utilisation en cours</div>
+      <div class="card-body">
+        {% if tool.open_usage %}
+        {% set usage = tool.open_usage %}
+        <p class="mb-2">
+          <span class="badge text-bg-info">Prêté</span>
+          depuis le <strong>{{ usage.started_on.strftime('%d/%m/%Y') }}</strong>
+        </p>
+        <dl class="row mb-3">
+          <dt class="col-sm-4">Utilisateur</dt><dd class="col-sm-8">{{ usage.used_by_name or '—' }}</dd>
+          <dt class="col-sm-4">Ordre de travail</dt><dd class="col-sm-8">{{ usage.work_order_code or '—' }}</dd>
+          <dt class="col-sm-4">Notes</dt><dd class="col-sm-8">{{ usage.notes or '—' }}</dd>
+        </dl>
+        <form method="post" action="/maintenance-tools/{{ tool.id }}/usages/{{ usage.id }}/return">
+          <div class="row g-2">
+            <div class="col-md-5">
+              <label class="form-label" for="return-date">Date de restitution</label>
+              <input class="form-control" id="return-date" name="ended_on" type="date"
+                     max="{{ app_today().isoformat() }}" value="{{ app_today().isoformat() }}">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label" for="return-notes">État / observations</label>
+              <input class="form-control" id="return-notes" name="return_notes">
+            </div>
+          </div>
+          <button class="btn btn-success mt-3" type="submit">Restituer l'outil</button>
+        </form>
+        {% elif tool.checkout_block_reason %}
+        <p class="text-muted mb-0">
+          Le prêt est indisponible. Corrigez le point signalé ci-dessus pour
+          pouvoir enregistrer une utilisation.
+        </p>
+        {% else %}
+        <form method="post" action="/maintenance-tools/{{ tool.id }}/usages">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="usage-wo">Ordre de travail</label>
+              <select class="form-select" id="usage-wo" name="work_order_id">
+                <option value="">— aucun —</option>
+                {% for wo in work_orders %}
+                <option value="{{ wo.id }}">{{ wo.code }} — {{ wo.equipment_code or '' }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="usage-user">Utilisateur</label>
+              <select class="form-select" id="usage-user" name="used_by_id">
+                <option value="">— utilisateur courant —</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {% if current_user and current_user.id == user.id %}selected{% endif %}>{{ user.display_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="usage-date">Date de début</label>
+              <input class="form-control" id="usage-date" name="started_on" type="date"
+                     max="{{ app_today().isoformat() }}" value="{{ app_today().isoformat() }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="usage-notes">Notes</label>
+              <textarea class="form-control" id="usage-notes" name="notes" rows="2"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit">Enregistrer l'utilisation</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not tool.open_usage %}
+    <div class="card mb-4">
+      <div class="card-header">Changer la disponibilité</div>
+      <div class="card-body">
+        <form method="post" action="/maintenance-tools/{{ tool.id }}/status" class="row g-2 align-items-end">
+          <div class="col-8">
+            <label class="form-label" for="tool-status-change">Statut</label>
+            <select class="form-select" id="tool-status-change" name="status">
+              {% for status in statuses %}
+              {% if status.value != 'in_use' %}
+              <option value="{{ status.value }}" {% if tool.status == status.value %}selected{% endif %}>{{ status.label }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-4">
+            <button class="btn btn-outline-primary w-100" type="submit">Appliquer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Historique des utilisations</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr><th>Début</th><th>Fin</th><th>OT</th><th>Utilisateur</th></tr>
+          </thead>
+          <tbody>
+            {% for usage in usages %}
+            <tr>
+              <td class="text-nowrap">{{ usage.started_on.strftime('%d/%m/%Y') }}</td>
+              <td class="text-nowrap">
+                {% if usage.ended_on %}
+                {{ usage.ended_on.strftime('%d/%m/%Y') }}
+                <div class="small text-muted">{{ usage.duration_days }} j</div>
+                {% else %}
+                <span class="badge text-bg-info">En cours</span>
+                {% endif %}
+              </td>
+              <td>{{ usage.work_order_code or '—' }}</td>
+              <td>
+                {{ usage.used_by_name or '—' }}
+                {% if usage.notes %}<div class="small text-muted">{{ usage.notes }}</div>{% endif %}
+                {% if usage.return_notes %}<div class="small text-muted">{{ usage.return_notes }}</div>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Aucune utilisation enregistrée.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border-danger-subtle mt-4">
+      <div class="card-header text-danger">Suppression</div>
+      <div class="card-body">
+        {% if calibrations or usages %}
+        <p class="mb-0 text-muted">
+          La fiche possède un historique d'étalonnage ou d'utilisation : la
+          suppression est refusée. Désactivez l'outil ou passez-le en « Réformé ».
+        </p>
+        {% else %}
+        <form method="post" action="/maintenance-tools/{{ tool.id }}/delete"
+              onsubmit="return confirm('Supprimer définitivement la fiche {{ tool.code }} ?');">
+          <button class="btn btn-outline-danger" type="submit">Supprimer la fiche</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

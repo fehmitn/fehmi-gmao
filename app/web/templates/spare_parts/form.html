@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block actions %}
+<a class="btn btn-outline-secondary" href="{% if part %}/spare-parts/{{ part.id }}{% else %}/spare-parts{% endif %}">Retour</a>
+{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">{% if part %}Modifier {{ part.code }}{% else %}Nouvelle pièce de rechange{% endif %}</div>
+      <div class="card-body">
+        <form method="post" action="{% if part %}/spare-parts/{{ part.id }}/update{% else %}/spare-parts{% endif %}">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="sp-code">Code *</label>
+              <input class="form-control" id="sp-code" name="code" required
+                     value="{{ part.code if part else '' }}" placeholder="PR-ROUL-6205">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="sp-name">Désignation *</label>
+              <input class="form-control" id="sp-name" name="name" required
+                     value="{{ part.name if part else '' }}" placeholder="Roulement 6205 2RS">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="sp-category">Catégorie</label>
+              <input class="form-control" id="sp-category" name="category"
+                     value="{{ part.category if part and part.category else '' }}"
+                     placeholder="Roulement, hydraulique, électricité…">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="sp-unit">Unité</label>
+              <input class="form-control" id="sp-unit" name="unit"
+                     value="{{ part.unit if part else 'pièce' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="sp-manufacturer">Fabricant</label>
+              <input class="form-control" id="sp-manufacturer" name="manufacturer"
+                     value="{{ part.manufacturer if part and part.manufacturer else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="sp-reference">Référence fabricant</label>
+              <input class="form-control" id="sp-reference" name="manufacturer_reference"
+                     value="{{ part.manufacturer_reference if part and part.manufacturer_reference else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="sp-supplier">Fournisseur</label>
+              <select class="form-select" id="sp-supplier" name="supplier_id">
+                <option value="">— aucun —</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}" {% if part and part.supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="sp-site">Usine / magasin</label>
+              <select class="form-select" id="sp-site" name="site_id">
+                <option value="">— aucun —</option>
+                {% for site in sites %}
+                <option value="{{ site.id }}" {% if part and part.site_id == site.id %}selected{% endif %}>{{ site.code }} — {{ site.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="sp-storage">Emplacement de stockage</label>
+              <input class="form-control" id="sp-storage" name="storage_location"
+                     value="{{ part.storage_location if part and part.storage_location else '' }}"
+                     placeholder="Rayon B4, armoire 2…">
+            </div>
+            {% if not part %}
+            <div class="col-md-6">
+              <label class="form-label" for="sp-quantity">Stock initial</label>
+              <input class="form-control" id="sp-quantity" name="quantity" inputmode="decimal" value="0">
+              <div class="form-text">Un mouvement « Stock initial » sera créé si la quantité est supérieure à 0.</div>
+            </div>
+            {% else %}
+            <div class="col-md-6">
+              <label class="form-label">Stock courant</label>
+              <div class="form-control-plaintext">
+                <span class="badge {{ part.stock_status_css }}">{{ part.stock_status_label }}</span>
+                {{ part.quantity|qty }} {{ part.unit }}
+              </div>
+              <div class="form-text">Le stock ne se modifie que par des mouvements, depuis la fiche de la pièce.</div>
+            </div>
+            {% endif %}
+            <div class="col-md-4">
+              <label class="form-label" for="sp-min">Seuil minimum</label>
+              <input class="form-control" id="sp-min" name="min_quantity" inputmode="decimal"
+                     value="{{ part.min_quantity if part else '0' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="sp-max">Stock maximum</label>
+              <input class="form-control" id="sp-max" name="max_quantity" inputmode="decimal"
+                     value="{{ part.max_quantity if part and part.max_quantity is not none else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="sp-cost">Coût unitaire (€)</label>
+              <input class="form-control" id="sp-cost" name="unit_cost" inputmode="decimal"
+                     value="{{ part.unit_cost if part and part.unit_cost is not none else '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="sp-description">Description</label>
+              <textarea class="form-control" id="sp-description" name="description" rows="2">{{ part.description if part and part.description else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="sp-notes">Notes</label>
+              <textarea class="form-control" id="sp-notes" name="notes" rows="2">{{ part.notes if part and part.notes else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="sp-active" name="is_active" value="1"
+                       {% if not part or part.is_active %}checked{% endif %}>
+                <label class="form-check-label" for="sp-active">Pièce active (visible dans les alertes de stock)</label>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit">{% if part %}Enregistrer{% else %}Créer la pièce{% endif %}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="alert alert-info">
+      <strong>Traçabilité du stock.</strong>
+      Le stock est mis à jour exclusivement par des mouvements : entrée, sortie
+      ou inventaire. Une sortie est refusée si la quantité demandée dépasse le
+      stock disponible.
+    </div>
+    {% if part and part.movement_count %}
+    <div class="alert alert-secondary">
+      <strong>{{ part.movement_count }}</strong> mouvement(s) de stock sont déjà
+      enregistrés. La pièce ne peut pas être supprimée, seulement désactivée.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
