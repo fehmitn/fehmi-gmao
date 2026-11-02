@@ -6,6 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.spare_part import SparePart, StockMovement
+from app.models.spare_part_interchange import SparePartInterchange
 
 
 class SparePartRepository:
@@ -131,4 +132,49 @@ class SparePartRepository:
 
     def delete(self, spare_part: SparePart) -> None:
         self.db.delete(spare_part)
+        self.db.commit()
+
+    # ------------------------------------------------------------- compatibilités
+    def list_interchanges(self, spare_part_id: int) -> list[SparePartInterchange]:
+        """Relations où cette pièce remplace une autre."""
+        stmt = (
+            select(SparePartInterchange)
+            .where(SparePartInterchange.part_id == spare_part_id)
+            .order_by(SparePartInterchange.id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def list_replacements(self, spare_part_id: int) -> list[SparePartInterchange]:
+        """Relations où cette pièce peut être remplacée par une autre."""
+        stmt = (
+            select(SparePartInterchange)
+            .where(SparePartInterchange.replaces_id == spare_part_id)
+            .order_by(SparePartInterchange.id)
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def get_interchange(
+        self, interchange_id: int
+    ) -> SparePartInterchange | None:
+        return self.db.get(SparePartInterchange, interchange_id)
+
+    def find_interchange(
+        self, part_id: int, replaces_id: int
+    ) -> SparePartInterchange | None:
+        stmt = select(SparePartInterchange).where(
+            SparePartInterchange.part_id == part_id,
+            SparePartInterchange.replaces_id == replaces_id,
+        )
+        return self.db.scalars(stmt).first()
+
+    def add_interchange(
+        self, interchange: SparePartInterchange
+    ) -> SparePartInterchange:
+        self.db.add(interchange)
+        self.db.commit()
+        self.db.refresh(interchange)
+        return interchange
+
+    def delete_interchange(self, interchange: SparePartInterchange) -> None:
+        self.db.delete(interchange)
         self.db.commit()

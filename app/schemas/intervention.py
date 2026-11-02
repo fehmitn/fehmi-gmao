@@ -50,6 +50,13 @@ class InterventionPartCreate(BaseModel):
 
 class InterventionPartUse(BaseModel):
     quantity: Decimal | None = Field(default=None, gt=0)
+    replacement_part_id: int | None = Field(
+        default=None,
+        description=(
+            "Pièce compatible réellement consommée. Si elle diffère de la pièce "
+            "demandée, la sortie de stock est enregistrée sur cette pièce."
+        ),
+    )
     notes: str | None = None
 
 
@@ -59,6 +66,7 @@ class InterventionPartRead(BaseModel):
     id: int
     work_order_id: int
     spare_part_id: int
+    used_spare_part_id: int | None = None
     requested_quantity: Decimal
     used_quantity: Decimal | None
     status: str
@@ -73,6 +81,9 @@ class InterventionPartRead(BaseModel):
     used_at: datetime | None
     spare_part_code: str | None = None
     spare_part_name: str | None = None
+    used_part_code: str | None = None
+    used_part_name: str | None = None
+    is_substituted: bool = False
     unit: str | None = None
     available_quantity: Decimal | None = None
     quantity_label: str | None = None

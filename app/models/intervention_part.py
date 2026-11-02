@@ -26,6 +26,9 @@ class InterventionPart(IdMixin, Base):
     spare_part_id: Mapped[int] = mapped_column(
         ForeignKey("spare_parts.id", ondelete="RESTRICT"), index=True
     )
+    used_spare_part_id: Mapped[int | None] = mapped_column(
+        ForeignKey("spare_parts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     requested_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     used_quantity: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     status: Mapped[str] = mapped_column(
@@ -46,7 +49,12 @@ class InterventionPart(IdMixin, Base):
     )
 
     work_order = relationship("WorkOrder", back_populates="intervention_parts")
-    spare_part = relationship("SparePart", lazy="joined")
+    spare_part = relationship(
+        "SparePart", foreign_keys=[spare_part_id], lazy="joined"
+    )
+    used_spare_part = relationship(
+        "SparePart", foreign_keys=[used_spare_part_id], lazy="joined"
+    )
     requested_by = relationship(
         "User", foreign_keys=[requested_by_id], lazy="joined"
     )
@@ -71,6 +79,21 @@ class InterventionPart(IdMixin, Base):
     @property
     def spare_part_name(self) -> str | None:
         return self.spare_part.name if self.spare_part else None
+
+    @property
+    def used_part_code(self) -> str | None:
+        return self.used_spare_part.code if self.used_spare_part else None
+
+    @property
+    def used_part_name(self) -> str | None:
+        return self.used_spare_part.name if self.used_spare_part else None
+
+    @property
+    def is_substituted(self) -> bool:
+        return (
+            self.used_spare_part_id is not None
+            and self.used_spare_part_id != self.spare_part_id
+        )
 
     @property
     def unit(self) -> str | None:

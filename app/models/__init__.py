@@ -33,6 +33,7 @@ from app.models.maintenance_tool import (
 from app.models.periodic_maintenance import PeriodicMaintenance
 from app.models.site import Site
 from app.models.spare_part import SparePart, StockMovement
+from app.models.spare_part_interchange import SparePartInterchange
 from app.models.user import User
 from app.models.work_order import WorkOrder
 
@@ -62,6 +63,7 @@ __all__ = [
     "PeriodicMaintenance",
     "Site",
     "SparePart",
+    "SparePartInterchange",
     "StockMovement",
     "StockMovementType",
     "TimestampMixin",

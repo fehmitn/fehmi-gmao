@@ -115,3 +115,28 @@ class StockMovementRead(BaseModel):
     delta_label: str | None = None
     actor_name: str | None = None
     work_order_code: str | None = None
+
+
+class SparePartInterchangeCreate(BaseModel):
+    replaces_id: int
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class SparePartInterchangeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    part_id: int
+    replaces_id: int
+    note: str | None
+    created_at: datetime
+    updated_at: datetime
+    part_code: str | None = None
+    replaces_code: str | None = None
+    is_cheaper: bool = False
+    price_label: str | None = None
+
+
+class SparePartInterchangesRead(BaseModel):
+    can_replace: list[SparePartInterchangeRead]
+    can_be_replaced_by: list[SparePartInterchangeRead]
