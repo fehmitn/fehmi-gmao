@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse, Response
+from pydantic import BeforeValidator
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -83,6 +85,12 @@ from app.services.user_service import UserService
 from app.services.work_order_service import WorkOrderService
 from app.web import formtools as ft
 from app.web.session import cookie_name, decode_user, encode_user
+
+# Filtre entier optionnel tolérant aux chaînes vides (envoyées par les
+# formulaires lorsqu'aucune option n'est sélectionnée).
+OptionalInt = Annotated[
+    int | None, BeforeValidator(lambda v: None if v in (None, "") else v)
+]
 from app.web.templating import render
 
 router = APIRouter(tags=["web"])
@@ -152,7 +160,7 @@ def dashboard(
 def analytics_page(
     request: Request,
     days: int = 365,
-    site_id: int | None = None,
+    site_id: OptionalInt = None,
     sort: str = "availability",
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),
@@ -330,7 +338,7 @@ def delete_site(
 @router.get("/locations")
 def locations_page(
     request: Request,
-    site_id: int | None = None,
+    site_id: OptionalInt = None,
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),
 ) -> Response:
@@ -1461,9 +1469,9 @@ def delete_equipment_type(
 @router.get("/equipments")
 def equipments_page(
     request: Request,
-    site_id: int | None = None,
-    location_id: int | None = None,
-    equipment_type_id: int | None = None,
+    site_id: OptionalInt = None,
+    location_id: OptionalInt = None,
+    equipment_type_id: OptionalInt = None,
     status_filter: str | None = None,
     criticality: str | None = None,
     search: str | None = None,
@@ -1493,9 +1501,9 @@ def equipments_page(
 @router.get("/equipments/table")
 def equipments_table(
     request: Request,
-    site_id: int | None = None,
-    location_id: int | None = None,
-    equipment_type_id: int | None = None,
+    site_id: OptionalInt = None,
+    location_id: OptionalInt = None,
+    equipment_type_id: OptionalInt = None,
     status_filter: str | None = None,
     criticality: str | None = None,
     search: str | None = None,
@@ -1562,8 +1570,8 @@ def _equipment_list_context(
 @router.get("/equipments/new")
 def new_equipment_form(
     request: Request,
-    site_id: int | None = None,
-    location_id: int | None = None,
+    site_id: OptionalInt = None,
+    location_id: OptionalInt = None,
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),
 ) -> Response:
@@ -1938,7 +1946,7 @@ async def users_update(
 def work_orders_page(
     request: Request,
     status: str | None = None,
-    assigned_to_id: int | None = None,
+    assigned_to_id: OptionalInt = None,
     search: str | None = None,
     mine: str | None = None,
     overdue: str | None = None,
@@ -2140,7 +2148,7 @@ def _intervention_detail_context(
 def interventions_page(
     request: Request,
     status: str | None = None,
-    assigned_to_id: int | None = None,
+    assigned_to_id: OptionalInt = None,
     search: str | None = None,
     mine: str | None = None,
     db: Session = Depends(get_db),
@@ -2177,7 +2185,7 @@ def interventions_page(
 @router.get("/interventions/new")
 def new_intervention_page(
     request: Request,
-    equipment_id: int | None = None,
+    equipment_id: OptionalInt = None,
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),
 ) -> Response:
@@ -2420,10 +2428,10 @@ async def cancel_intervention_part(
 @router.get("/maintenance-schedule")
 def maintenance_schedule_page(
     request: Request,
-    site_id: int | None = None,
-    equipment_type_id: int | None = None,
-    supplier_id: int | None = None,
-    horizon_days: int | None = None,
+    site_id: OptionalInt = None,
+    equipment_type_id: OptionalInt = None,
+    supplier_id: OptionalInt = None,
+    horizon_days: OptionalInt = None,
     search: str | None = None,
     db: Session = Depends(get_db),
     actor: User | None = Depends(get_current_user),

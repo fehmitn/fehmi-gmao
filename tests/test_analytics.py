@@ -325,6 +325,10 @@ def test_analytics_web_page_and_equipment_badge(client, db, equipment):
     page = client.get("/analytics", params={"days": 365})
     assert page.status_code == 200
     assert "Analyse de maintenance" in page.text
+
+    # Une sélection « Toutes » envoie une chaîne vide : elle doit être tolérée.
+    empty = client.get("/analytics", params={"days": 30, "site_id": ""})
+    assert empty.status_code == 200
     assert "PMP-001" in page.text
     assert "Pannes récurrentes" in page.text
 
